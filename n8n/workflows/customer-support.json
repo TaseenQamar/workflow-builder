@@ -1,0 +1,78 @@
+{
+  "name": "Customer Support - Ticket Router",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "support-ticket",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000001",
+      "name": "New Support Ticket",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "support-ticket"
+    },
+    {
+      "parameters": {
+        "jsCode": "const ticket = $input.first().json.body || $input.first().json;\nconst subject = (ticket.subject || '').toLowerCase();\nconst body = (ticket.body || ticket.message || '').toLowerCase();\nconst text = `${subject} ${body}`;\n\nlet category = 'General';\nlet department = 'Support';\nlet priority = 'medium';\n\nif (/billing|payment|invoice|refund/.test(text)) {\n  category = 'Billing';\n  department = 'Finance';\n  priority = 'high';\n} else if (/bug|error|crash|broken|not working/.test(text)) {\n  category = 'Technical';\n  department = 'Engineering';\n  priority = 'high';\n} else if (/feature|request|enhancement/.test(text)) {\n  category = 'Feature Request';\n  department = 'Product';\n  priority = 'low';\n}\n\nreturn [{\n  json: {\n    ticketId: ticket.ticketId || `TKT-${Date.now()}`,\n    subject: ticket.subject || 'No subject',\n    category,\n    department,\n    priority,\n    assignedTo: `${department} Team`,\n    slackMessage: `🎫 New ${category} ticket → ${department} (${priority} priority)\\nSubject: ${ticket.subject || 'N/A'}`\n  }\n}];"
+      },
+      "id": "a1b2c3d4-0002-4000-8000-000000000002",
+      "name": "AI Categorize",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nreturn [{\n  json: {\n    ...data,\n    departmentAssigned: true,\n    assignedAt: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "a1b2c3d4-0003-4000-8000-000000000003",
+      "name": "Assign Department",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nreturn [{\n  json: {\n    ...data,\n    slackNotified: true,\n    notification: data.slackMessage\n  }\n}];"
+      },
+      "id": "a1b2c3d4-0004-4000-8000-000000000004",
+      "name": "Notify Slack",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, workflow: 'Customer Support', result: $json }) }}"
+      },
+      "id": "a1b2c3d4-0005-4000-8000-000000000005",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1200, 300]
+    }
+  ],
+  "connections": {
+    "New Support Ticket": {
+      "main": [[{ "node": "AI Categorize", "type": "main", "index": 0 }]]
+    },
+    "AI Categorize": {
+      "main": [[{ "node": "Assign Department", "type": "main", "index": 0 }]]
+    },
+    "Assign Department": {
+      "main": [[{ "node": "Notify Slack", "type": "main", "index": 0 }]]
+    },
+    "Notify Slack": {
+      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": true
+}

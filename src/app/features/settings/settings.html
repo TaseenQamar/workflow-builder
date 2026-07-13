@@ -1,0 +1,94 @@
+<div class="flex h-full flex-col overflow-hidden">
+  <header class="border-b border-slate-800 px-8 py-6">
+    <h1 class="text-2xl font-semibold text-white">Settings</h1>
+    <p class="mt-1 text-sm text-slate-400">
+      Manage integrations, API keys, and workspace preferences.
+    </p>
+  </header>
+
+  <div class="flex-1 overflow-y-auto p-8">
+    <section class="mb-10">
+      <h2 class="text-lg font-medium text-white">n8n Connection</h2>
+      <div class="mt-4 max-w-lg rounded-xl border border-slate-800 bg-slate-900 p-5">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="font-medium text-white">Automation Engine</p>
+            <p class="text-sm text-slate-400">{{ n8nApiUrl }}</p>
+          </div>
+          @if (n8nConnected()) {
+            <span class="rounded-full bg-emerald-500/20 px-3 py-1 text-xs text-emerald-300">
+              Connected
+            </span>
+          } @else {
+            <span class="rounded-full bg-amber-500/20 px-3 py-1 text-xs text-amber-300">
+              Offline
+            </span>
+          }
+        </div>
+        <p class="mt-3 text-xs text-slate-500">
+          Start n8n: <code class="text-indigo-400">npm run n8n</code> → Import workflows:
+          <code class="text-indigo-400">npm run n8n:import</code>
+        </p>
+      </div>
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-lg font-medium text-white">Integrations</h2>
+      <p class="mt-1 text-sm text-slate-400">
+        Connect third-party services used by your workflow nodes.
+      </p>
+
+      <div class="mt-6 grid gap-4 sm:grid-cols-2">
+        @for (integration of integrations(); track integration.name) {
+          <div
+            class="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900 p-5"
+          >
+            <div class="flex items-center gap-4">
+              <span class="text-2xl">{{ integration.icon }}</span>
+              <div>
+                <p class="font-medium text-white">{{ integration.name }}</p>
+                <p class="text-sm text-slate-400">{{ integration.description }}</p>
+              </div>
+            </div>
+            @if (integration.connected) {
+              <span class="rounded-full bg-emerald-500/20 px-3 py-1 text-xs text-emerald-300">
+                Connected
+              </span>
+            } @else {
+              <button
+                type="button"
+                class="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300 transition hover:bg-slate-800"
+              >
+                Connect
+              </button>
+            }
+          </div>
+        }
+      </div>
+    </section>
+
+    <section>
+      <h2 class="text-lg font-medium text-white">Workspace</h2>
+      <div class="mt-4 max-w-lg space-y-4 rounded-xl border border-slate-800 bg-slate-900 p-5">
+        <div>
+          <label class="block text-sm text-slate-400">Workspace Name</label>
+          <input
+            type="text"
+            value="My Automation Workspace"
+            class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
+          />
+        </div>
+        <div>
+          <label class="block text-sm text-slate-400">Default Timezone</label>
+          <select
+            class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
+          >
+            <option>UTC</option>
+            <option>Asia/Karachi</option>
+            <option>America/New_York</option>
+          </select>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>

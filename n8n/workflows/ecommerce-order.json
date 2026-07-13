@@ -1,0 +1,78 @@
+{
+  "name": "E-commerce - Order Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "new-order",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "b1b2c3d4-0001-4000-8000-000000000001",
+      "name": "New Order",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "new-order"
+    },
+    {
+      "parameters": {
+        "jsCode": "const order = $input.first().json.body || $input.first().json;\nconst items = order.items || [{ name: 'Product', qty: 1, price: order.total || 0 }];\nconst inventory = items.map(item => ({\n  sku: item.sku || item.name,\n  requested: item.qty || 1,\n  inStock: true,\n  available: 100\n}));\nconst allInStock = inventory.every(i => i.inStock);\n\nreturn [{\n  json: {\n    orderId: order.orderId || `ORD-${Date.now()}`,\n    customerEmail: order.email || order.customerEmail || 'customer@example.com',\n    customerName: order.customerName || 'Customer',\n    items,\n    inventory,\n    allInStock,\n    total: order.total || items.reduce((s, i) => s + (i.price || 0) * (i.qty || 1), 0)\n  }\n}];"
+      },
+      "id": "b1b2c3d4-0002-4000-8000-000000000002",
+      "name": "Check Inventory",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst invoiceNumber = `INV-${Date.now()}`;\nreturn [{\n  json: {\n    ...data,\n    invoiceNumber,\n    invoiceDate: new Date().toISOString().split('T')[0],\n    status: data.allInStock ? 'confirmed' : 'backorder',\n    invoiceUrl: `https://invoices.example.com/${invoiceNumber}`\n  }\n}];"
+      },
+      "id": "b1b2c3d4-0003-4000-8000-000000000003",
+      "name": "Generate Invoice",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nreturn [{\n  json: {\n    ...data,\n    emailSent: true,\n    emailTo: data.customerEmail,\n    emailSubject: `Order ${data.orderId} confirmed - Invoice ${data.invoiceNumber}`,\n    emailBody: `Hi ${data.customerName}, your order of $${data.total} has been confirmed. Invoice: ${data.invoiceUrl}`\n  }\n}];"
+      },
+      "id": "b1b2c3d4-0004-4000-8000-000000000004",
+      "name": "Send Customer Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, workflow: 'E-commerce', result: $json }) }}"
+      },
+      "id": "b1b2c3d4-0005-4000-8000-000000000005",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1200, 300]
+    }
+  ],
+  "connections": {
+    "New Order": {
+      "main": [[{ "node": "Check Inventory", "type": "main", "index": 0 }]]
+    },
+    "Check Inventory": {
+      "main": [[{ "node": "Generate Invoice", "type": "main", "index": 0 }]]
+    },
+    "Generate Invoice": {
+      "main": [[{ "node": "Send Customer Email", "type": "main", "index": 0 }]]
+    },
+    "Send Customer Email": {
+      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": true
+}

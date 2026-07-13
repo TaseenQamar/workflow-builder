@@ -1,0 +1,18 @@
+{
+  "/n8n-api": {
+    "target": "http://localhost:5678/api/v1",
+    "secure": false,
+    "changeOrigin": true,
+    "pathRewrite": {
+      "^/n8n-api": ""
+    }
+  },
+  "/n8n-webhook": {
+    "target": "http://localhost:5678/webhook",
+    "secure": false,
+    "changeOrigin": true,
+    "pathRewrite": {
+      "^/n8n-webhook": ""
+    }
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "name": "AI Content - Blog Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "content-topic",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "c1b2c3d4-0001-4000-8000-000000000001",
+      "name": "Topic",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "content-topic"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json.body || $input.first().json;\nconst topic = input.topic || 'Automation Best Practices';\nconst title = `The Complete Guide to ${topic}`;\nconst blog = `# ${title}\\n\\n## Introduction\\n${topic} is transforming how teams work. This guide covers key strategies and implementation tips.\\n\\n## Key Points\\n1. Start with clear goals\\n2. Automate repetitive tasks\\n3. Measure and iterate\\n\\n## Conclusion\\nMastering ${topic} can significantly boost productivity.`;\n\nreturn [{\n  json: {\n    topic,\n    title,\n    blog,\n    wordCount: blog.split(/\\s+/).length,\n    generatedAt: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "c1b2c3d4-0002-4000-8000-000000000002",
+      "name": "AI Generate Blog",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst titleLen = data.title.length;\nconst hasH1 = data.blog.startsWith('#');\nconst wordCount = data.wordCount;\nconst seoScore = Math.min(100, (titleLen >= 30 && titleLen <= 60 ? 30 : 15) + (hasH1 ? 25 : 0) + (wordCount >= 300 ? 45 : 20));\n\nreturn [{\n  json: {\n    ...data,\n    seo: {\n      score: seoScore,\n      passed: seoScore >= 60,\n      checks: {\n        titleLength: titleLen >= 30 && titleLen <= 60,\n        hasHeadings: hasH1,\n        wordCountOk: wordCount >= 200\n      }\n    }\n  }\n}];"
+      },
+      "id": "c1b2c3d4-0003-4000-8000-000000000003",
+      "name": "SEO Check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst autoApprove = data.seo?.passed === true;\nreturn [{\n  json: {\n    ...data,\n    approved: autoApprove,\n    approvedBy: autoApprove ? 'auto' : 'pending-review',\n    approvedAt: autoApprove ? new Date().toISOString() : null\n  }\n}];"
+      },
+      "id": "c1b2c3d4-0004-4000-8000-000000000004",
+      "name": "Approve",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nif (!data.approved) {\n  return [{ json: { ...data, published: false, publishUrl: null, message: 'Awaiting manual approval' } }];\n}\nconst slug = data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');\nreturn [{\n  json: {\n    ...data,\n    published: true,\n    publishUrl: `https://blog.example.com/${slug}`,\n    publishedAt: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "c1b2c3d4-0005-4000-8000-000000000005",
+      "name": "Publish",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, workflow: 'AI Content Pipeline', result: $json }) }}"
+      },
+      "id": "c1b2c3d4-0006-4000-8000-000000000006",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1440, 300]
+    }
+  ],
+  "connections": {
+    "Topic": {
+      "main": [[{ "node": "AI Generate Blog", "type": "main", "index": 0 }]]
+    },
+    "AI Generate Blog": {
+      "main": [[{ "node": "SEO Check", "type": "main", "index": 0 }]]
+    },
+    "SEO Check": {
+      "main": [[{ "node": "Approve", "type": "main", "index": 0 }]]
+    },
+    "Approve": {
+      "main": [[{ "node": "Publish", "type": "main", "index": 0 }]]
+    },
+    "Publish": {
+      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": true
+}

@@ -1,0 +1,28 @@
+<div class="flex h-full flex-col overflow-hidden">
+  <header class="border-b border-slate-800 px-8 py-6">
+    <h1 class="text-2xl font-semibold text-white">Node Library</h1>
+    <p class="mt-1 text-sm text-slate-400">
+      Browse triggers, actions, AI nodes, and logic blocks for your workflows.
+    </p>
+  </header>
+
+  <div class="flex-1 overflow-y-auto p-8">
+    @for (category of categories(); track category.name) {
+      <section class="mb-10">
+        <h2 class="text-lg font-medium text-white">{{ category.name }}</h2>
+        <div class="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          @for (node of category.nodes; track node.name) {
+            <button
+              type="button"
+              class="rounded-xl border border-slate-800 bg-slate-900 p-4 text-left transition hover:border-indigo-500/50 hover:bg-slate-800"
+            >
+              <span class="text-2xl">{{ node.icon }}</span>
+              <p class="mt-3 font-medium text-white">{{ node.name }}</p>
+              <p class="mt-1 text-sm text-slate-400">{{ node.description }}</p>
+            </button>
+          }
+        </div>
+      </section>
+    }
+  </div>
+</div>

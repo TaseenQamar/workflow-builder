@@ -1,0 +1,59 @@
+<div class="flex h-full flex-col overflow-hidden">
+  <header class="flex items-center justify-between border-b border-slate-800 px-8 py-6">
+    <div>
+      <h1 class="text-2xl font-semibold text-white">Executions</h1>
+      <p class="mt-1 text-sm text-slate-400">
+        @if (n8nConnected()) {
+          Live execution history from n8n.
+        } @else {
+          n8n offline — showing demo data. Start with <code class="text-indigo-400">npm run n8n</code>.
+        }
+      </p>
+    </div>
+    <button
+      type="button"
+      class="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:bg-slate-800"
+      (click)="refresh()"
+    >
+      Refresh
+    </button>
+  </header>
+
+  <div class="flex-1 overflow-y-auto p-8">
+  @if (loading()) {
+    <p class="text-sm text-slate-400">Loading executions...</p>
+  } @else {
+    <div class="overflow-hidden rounded-xl border border-slate-800">
+      <table class="w-full text-left text-sm">
+        <thead class="border-b border-slate-800 bg-slate-900/80">
+          <tr>
+            <th class="px-5 py-3 font-medium text-slate-400">Execution ID</th>
+            <th class="px-5 py-3 font-medium text-slate-400">Workflow</th>
+            <th class="px-5 py-3 font-medium text-slate-400">Status</th>
+            <th class="px-5 py-3 font-medium text-slate-400">Started</th>
+            <th class="px-5 py-3 font-medium text-slate-400">Duration</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (execution of executions(); track execution.id) {
+            <tr class="border-b border-slate-800/60 transition hover:bg-slate-900/50">
+              <td class="px-5 py-4 font-mono text-slate-300">{{ execution.id }}</td>
+              <td class="px-5 py-4 text-white">{{ execution.workflow }}</td>
+              <td class="px-5 py-4">
+                <span
+                  class="rounded-full px-2.5 py-1 text-xs font-medium capitalize"
+                  [class]="statusClass(execution.status)"
+                >
+                  {{ execution.status }}
+                </span>
+              </td>
+              <td class="px-5 py-4 text-slate-400">{{ execution.startedAt }}</td>
+              <td class="px-5 py-4 text-slate-400">{{ execution.duration }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+  </div>
+</div>
