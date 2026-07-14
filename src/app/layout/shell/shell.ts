@@ -30,7 +30,7 @@ interface NavItem {
 export class Shell {
   private readonly router = inject(Router);
 
-  protected readonly appName = signal('Cluster Valley');
+  protected readonly appName = signal('Cluster Valley AI');
   protected readonly sidebarOpen = signal(false);
   protected readonly isDesktop = signal(
     typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
