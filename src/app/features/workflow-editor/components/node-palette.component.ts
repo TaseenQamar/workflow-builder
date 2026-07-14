@@ -1,22 +1,33 @@
-import { Component, inject } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { DragDropModule } from '@angular/cdk/drag-drop';
 import { WorkflowEditorStore } from '../workflow-editor.store';
-import { NODE_CATALOG, nodeColor } from '../../../core/constants/node-definitions';
-import { NodeDefinition } from '../../../core/constants/node-definitions';
+import {
+  NODE_CATALOG,
+  NODE_CATEGORIES,
+  nodeColor,
+  NodeDefinition,
+} from '../../../core/constants/node-definitions';
 
 @Component({
   selector: 'app-node-palette',
-  imports: [DragDropModule],
+  imports: [DragDropModule, FormsModule],
   template: `
     <div class="flex h-full flex-col">
       <p class="text-xs font-medium uppercase tracking-wider text-[#9A9A9A]">
-        Node Palette
+        Nodes · {{ filtered().length }}
       </p>
       <p class="mt-1 text-xs text-[#9A9A9A]">
-        Drag onto canvas · double-click to add
+        Like n8n — search, drag, or double-click
       </p>
+      <input
+        type="search"
+        class="mt-2 w-full rounded-lg border border-[#CDDBD9] bg-[#F5FBFA] px-2.5 py-1.5 text-xs text-[#1A1A1A] outline-none focus:border-[#2BBFBA]"
+        placeholder="Search nodes…"
+        [ngModel]="search()"
+        (ngModelChange)="search.set($event)"
+      />
 
-      <!-- Flat drop list — cdkDrag items MUST be direct children -->
       <div
         cdkDropList
         id="palette-list"
@@ -25,11 +36,11 @@ import { NodeDefinition } from '../../../core/constants/node-definitions';
         cdkDropListSortingDisabled
         class="mt-3 flex-1 space-y-1 overflow-y-auto"
       >
-        @for (group of grouped; track group.name) {
+        @for (group of grouped(); track group.name) {
           <p class="mb-1 mt-3 first:mt-0 text-xs font-semibold uppercase tracking-wide text-[#9A9A9A]">
             {{ group.name }}
           </p>
-          @for (node of group.nodes; track node.label) {
+          @for (node of group.nodes; track node.type) {
             <div
               cdkDrag
               [cdkDragData]="node"
@@ -45,7 +56,6 @@ import { NodeDefinition } from '../../../core/constants/node-definitions';
                 </div>
               </div>
 
-              <!-- Custom drag preview (follows cursor) -->
               <div
                 *cdkDragPreview
                 class="rounded-xl border border-[#4DD4CE] bg-[#F5FBFA] px-4 py-3 shadow-2xl"
@@ -54,7 +64,6 @@ import { NodeDefinition } from '../../../core/constants/node-definitions';
                 <span class="font-medium text-[#1A1A1A]">{{ node.label }}</span>
               </div>
 
-              <!-- Placeholder left in palette while dragging -->
               <div
                 *cdkDragPlaceholder
                 class="mb-1.5 rounded-lg border border-dashed border-[#4DD4CE]/60 bg-[#1FA8A3]/5 px-3 py-2.5 text-sm opacity-50"
@@ -72,17 +81,25 @@ export class NodePaletteComponent {
   protected readonly store = inject(WorkflowEditorStore);
   protected readonly paletteData = NODE_CATALOG;
   protected readonly nodeColor = nodeColor;
+  protected readonly search = signal('');
 
-  protected readonly grouped = [
-    'Triggers',
-    'Actions',
-    'AI',
-    'Logic',
-    'Integrations',
-  ].map((name) => ({
-    name,
-    nodes: NODE_CATALOG.filter((n) => n.category === name),
-  }));
+  protected readonly filtered = computed(() => {
+    const q = this.search().trim().toLowerCase();
+    if (!q) return NODE_CATALOG;
+    return NODE_CATALOG.filter(
+      (n) =>
+        n.label.toLowerCase().includes(q) ||
+        n.description.toLowerCase().includes(q) ||
+        n.type.toLowerCase().includes(q),
+    );
+  });
+
+  protected readonly grouped = computed(() =>
+    NODE_CATEGORIES.map((name) => ({
+      name,
+      nodes: this.filtered().filter((n) => n.category === name),
+    })).filter((g) => g.nodes.length > 0),
+  );
 
   protected addToCanvas(node: NodeDefinition): void {
     const nodes = this.store.nodes();

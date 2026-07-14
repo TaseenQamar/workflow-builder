@@ -1,5 +1,10 @@
 import { Injectable, inject } from '@angular/core';
+import { catchError, of } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
+import {
+  AiProviderChoice,
+  readStoredAiProvider,
+} from '../../core/constants/node-definitions';
 import { WorkflowEditorStore } from './workflow-editor.store';
 
 @Injectable()
@@ -11,8 +16,28 @@ export class WorkflowChatService {
     const text = (message ?? this.store.chatInput()).trim();
     if (!text || this.store.running()) return;
 
+    // Always re-read Settings provider before calling the API
+    this.api
+      .getAiIntegrationStatus()
+      .pipe(
+        catchError(() =>
+          of({
+            defaultProvider: readStoredAiProvider() as AiProviderChoice,
+          }),
+        ),
+      )
+      .subscribe((status) => {
+        const provider: AiProviderChoice =
+          status.defaultProvider === 'gemini' ? 'gemini' : 'openai';
+        this.store.setDefaultAiProvider(provider);
+        this.executeChat(text);
+      });
+  }
+
+  private executeChat(text: string): void {
     this.store.ensureChatWorkflow();
     this.store.ensureConnections();
+    this.store.applyDefaultProviderToChatModels();
 
     const validationErrors = this.store.validateWorkflowForRun();
     if (validationErrors.length) {
@@ -38,7 +63,7 @@ export class WorkflowChatService {
         name: this.store.workflowName(),
       })
       .subscribe({
-      next: (result) => {
+        next: (result) => {
           this.store.running.set(false);
           const savedId = result['workflowId'];
           if (typeof savedId === 'string' && savedId) {
@@ -57,14 +82,16 @@ export class WorkflowChatService {
           this.store.addChatMessage('assistant', reply);
 
           const output = result['output'] as Record<string, unknown> | undefined;
-          const demo = (output?.['agent'] as Record<string, unknown>)?.['demoMode'];
+          const agent = output?.['agent'] as Record<string, unknown> | undefined;
+          const demo = agent?.['demoMode'];
+          const usedProvider = String(agent?.['provider'] ?? '');
           const persisted = result['persisted'] === true;
           this.store.message.set(
             demo
               ? 'Demo mode — save an OpenAI/Gemini API key in Settings'
               : persisted
-                ? 'Workflow completed · saved to PostgreSQL'
-                : 'Workflow completed',
+                ? `Workflow completed via ${usedProvider || 'AI'} · saved to PostgreSQL`
+                : `Workflow completed via ${usedProvider || 'AI'}`,
           );
         },
         error: (err) => {

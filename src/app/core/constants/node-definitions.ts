@@ -5,11 +5,30 @@ export interface NodeDefinition {
   label: string;
   description: string;
   icon: string;
-  category: 'Triggers' | 'Actions' | 'AI' | 'Logic' | 'Integrations';
+  category: 'Triggers' | 'Actions' | 'AI' | 'Logic' | 'Data' | 'Integrations' | 'Social';
   defaultData: Record<string, unknown>;
 }
 
+export const NODE_CATEGORIES: NodeDefinition['category'][] = [
+  'Triggers',
+  'Actions',
+  'AI',
+  'Logic',
+  'Data',
+  'Social',
+  'Integrations',
+];
+
 export const NODE_CATALOG: NodeDefinition[] = [
+  // ── Triggers (n8n-style) ──
+  {
+    type: 'manual_trigger',
+    label: 'Manual Trigger',
+    description: 'Start workflow manually (n8n Manual Trigger)',
+    icon: '▶',
+    category: 'Triggers',
+    defaultData: {},
+  },
   {
     type: 'chat_trigger',
     label: 'Chat Message Received',
@@ -29,11 +48,26 @@ export const NODE_CATALOG: NodeDefinition[] = [
   {
     type: 'schedule',
     label: 'Schedule',
-    description: 'Run on cron schedule',
+    description: 'Run daily at a set time (e.g. 9:00 AM Karachi)',
     icon: '⏰',
     category: 'Triggers',
-    defaultData: { cron: '0 9 * * *' },
+    defaultData: {
+      hour: 9,
+      minute: 0,
+      timezone: 'Asia/Karachi',
+      cron: '0 9 * * *',
+    },
   },
+  {
+    type: 'rss',
+    label: 'RSS Feed Read',
+    description: 'Fetch items from an RSS/Atom feed',
+    icon: '📰',
+    category: 'Triggers',
+    defaultData: { url: 'https://hnrss.org/frontpage', limit: 5 },
+  },
+
+  // ── Actions ──
   {
     type: 'http',
     label: 'HTTP Request',
@@ -44,6 +78,18 @@ export const NODE_CATALOG: NodeDefinition[] = [
       url: 'https://jsonplaceholder.typicode.com/posts/1',
       method: 'GET',
       body: '',
+    },
+  },
+  {
+    type: 'graphql',
+    label: 'GraphQL',
+    description: 'Run a GraphQL query/mutation',
+    icon: '◈',
+    category: 'Actions',
+    defaultData: {
+      url: 'https://countries.trevorblades.com/',
+      query: '{ continents { code name } }',
+      variables: '{}',
     },
   },
   {
@@ -66,27 +112,110 @@ export const NODE_CATALOG: NodeDefinition[] = [
     },
   },
   {
+    type: 'discord',
+    label: 'Discord',
+    description: 'Send message via Discord webhook',
+    icon: '🎮',
+    category: 'Actions',
+    defaultData: {
+      webhookUrl: '',
+      content: 'Hello from Cluster Valley: {{aiResponse}}',
+    },
+  },
+  {
+    type: 'telegram',
+    label: 'Telegram',
+    description: 'Send Telegram bot message',
+    icon: '✈️',
+    category: 'Actions',
+    defaultData: {
+      botToken: '',
+      chatId: '',
+      text: 'Hello: {{message}}',
+    },
+  },
+  {
     type: 'spreadsheet',
-    label: 'Spreadsheet',
-    description: 'Add rows to Excel-like sheet',
+    label: 'Spreadsheet / Posts Sheet',
+    description: 'Excel-like rows — load Message/Link posts for social scheduling',
     icon: '📊',
     category: 'Actions',
     defaultData: {
-      action: 'add_row',
-      sheetName: 'Sheet1',
-      headers: 'Name,Response',
+      action: 'load_posts',
+      sheetName: 'Posts',
+      pickMode: 'rotate_daily',
+      postsCsv:
+        'Message,Link,ImageUrl\nGood morning from Cluster Valley!,https://example.com,\nOur new AI workflow tip of the day,,\nFriday feature update is live!,https://example.com/blog,',
+      headers: 'Message,Link,ImageUrl',
       rowCol1: '{{name}}',
       rowCol2: '{{aiResponse}}',
     },
   },
   {
-    type: 'n8n',
-    label: 'n8n Node',
-    description: 'Delegate step to n8n',
-    icon: '⚙️',
-    category: 'Integrations',
-    defaultData: { webhookPath: 'support-ticket' },
+    type: 'facebook',
+    label: 'Facebook Page Post',
+    description: 'Post text/link to a Facebook Page at schedule time',
+    icon: '📘',
+    category: 'Social',
+    defaultData: {
+      pageId: '',
+      accessToken: '',
+      message: '{{nextPost.message}}',
+      link: '{{nextPost.link}}',
+      dryRun: 'true',
+    },
   },
+  {
+    type: 'instagram',
+    label: 'Instagram Post',
+    description: 'Publish image + caption to IG Business account',
+    icon: '📸',
+    category: 'Social',
+    defaultData: {
+      igUserId: '',
+      accessToken: '',
+      caption: '{{nextPost.message}}',
+      imageUrl: '{{nextPost.imageUrl}}',
+      dryRun: 'true',
+    },
+  },
+  {
+    type: 'linkedin',
+    label: 'LinkedIn Post',
+    description: 'Share a text update on LinkedIn',
+    icon: '💼',
+    category: 'Social',
+    defaultData: {
+      accessToken: '',
+      authorUrn: '',
+      text: '{{nextPost.message}}',
+      dryRun: 'true',
+    },
+  },
+  {
+    type: 'postgres',
+    label: 'Postgres',
+    description: 'Run a SQL query (read-only SELECT by default)',
+    icon: '🐘',
+    category: 'Actions',
+    defaultData: {
+      mode: 'select',
+      query: 'SELECT id, name FROM "Workflow" LIMIT 10',
+    },
+  },
+  {
+    type: 'respond_webhook',
+    label: 'Respond to Webhook',
+    description: 'Set response body/status for webhook calls',
+    icon: '↩',
+    category: 'Actions',
+    defaultData: {
+      statusCode: 200,
+      body: '{"ok":true,"result":"{{aiResponse}}"}',
+    },
+  },
+
+  // ── AI ──
   {
     type: 'ai_agent',
     label: 'AI Agent',
@@ -95,7 +224,8 @@ export const NODE_CATALOG: NodeDefinition[] = [
     category: 'AI',
     defaultData: {
       agentType: 'tools',
-      instructions: 'You are a helpful assistant. Use {{message}}. If HTTP data exists, use it from context.',
+      instructions:
+        'You are a helpful assistant. Use {{message}}. If HTTP data exists, use it from context.',
       outputKey: 'aiResponse',
     },
   },
@@ -135,18 +265,32 @@ export const NODE_CATALOG: NodeDefinition[] = [
       outputKey: 'aiResponse',
     },
   },
+
+  // ── Logic ──
   {
     type: 'condition',
-    label: 'Condition',
-    description: 'Branch on if/else rules',
+    label: 'IF',
+    description: 'Branch true/false (n8n IF)',
     icon: '◇',
     category: 'Logic',
     defaultData: { field: 'category', operator: 'equals', value: 'Billing' },
   },
   {
+    type: 'switch',
+    label: 'Switch',
+    description: 'Route by value to case0/case1/default',
+    icon: '⎇',
+    category: 'Logic',
+    defaultData: {
+      field: 'category',
+      case0: 'Billing',
+      case1: 'Technical',
+    },
+  },
+  {
     type: 'delay',
-    label: 'Delay',
-    description: 'Wait before next step',
+    label: 'Wait',
+    description: 'Wait before next step (n8n Wait)',
     icon: '⏳',
     category: 'Logic',
     defaultData: { seconds: 2 },
@@ -154,10 +298,112 @@ export const NODE_CATALOG: NodeDefinition[] = [
   {
     type: 'code',
     label: 'Code',
-    description: 'Custom JavaScript logic',
+    description: 'Custom JavaScript (n8n Code)',
     icon: '{ }',
     category: 'Logic',
     defaultData: { code: 'return { ...input, processed: true };' },
+  },
+  {
+    type: 'noop',
+    label: 'No Operation',
+    description: 'Pass data through unchanged',
+    icon: '○',
+    category: 'Logic',
+    defaultData: {},
+  },
+  {
+    type: 'stop_and_error',
+    label: 'Stop and Error',
+    description: 'Stop workflow with an error message',
+    icon: '⛔',
+    category: 'Logic',
+    defaultData: { message: 'Stopped by workflow rule' },
+  },
+
+  // ── Data (n8n transform) ──
+  {
+    type: 'set',
+    label: 'Edit Fields (Set)',
+    description: 'Set/override fields like n8n Set',
+    icon: '✎',
+    category: 'Data',
+    defaultData: {
+      assignments: 'status=ok\nsummary={{aiResponse}}',
+    },
+  },
+  {
+    type: 'filter',
+    label: 'Filter',
+    description: 'Keep data only when condition matches',
+    icon: '⨂',
+    category: 'Data',
+    defaultData: {
+      field: 'category',
+      operator: 'equals',
+      value: 'Billing',
+    },
+  },
+  {
+    type: 'merge',
+    label: 'Merge',
+    description: 'Merge previous output into named object',
+    icon: '⧉',
+    category: 'Data',
+    defaultData: { outputKey: 'merged' },
+  },
+  {
+    type: 'split_out',
+    label: 'Split Out',
+    description: 'Split an array field into items[]',
+    icon: '▤',
+    category: 'Data',
+    defaultData: { field: 'items' },
+  },
+  {
+    type: 'aggregate',
+    label: 'Aggregate',
+    description: 'Count / join / summarize fields',
+    icon: '∑',
+    category: 'Data',
+    defaultData: { field: 'items', operation: 'count' },
+  },
+  {
+    type: 'datetime',
+    label: 'Date & Time',
+    description: 'Add current timestamp / format date',
+    icon: '📅',
+    category: 'Data',
+    defaultData: { outputKey: 'now', format: 'iso' },
+  },
+  {
+    type: 'crypto',
+    label: 'Crypto',
+    description: 'Hash a value (sha256 / md5)',
+    icon: '🔐',
+    category: 'Data',
+    defaultData: {
+      algorithm: 'sha256',
+      value: '{{message}}',
+      outputKey: 'hash',
+    },
+  },
+  {
+    type: 'html',
+    label: 'HTML Extract',
+    description: 'Pull text length / title from HTML string',
+    icon: '📄',
+    category: 'Data',
+    defaultData: { field: 'htmlData', outputKey: 'htmlText' },
+  },
+
+  // ── Integrations ──
+  {
+    type: 'n8n',
+    label: 'n8n Node',
+    description: 'Delegate step to n8n',
+    icon: '⚙️',
+    category: 'Integrations',
+    defaultData: { webhookPath: 'support-ticket' },
   },
 ];
 
@@ -188,7 +434,13 @@ export interface NodePortLayout {
 }
 
 export function isTriggerNode(type: NodeType): boolean {
-  return type === 'webhook' || type === 'schedule' || type === 'chat_trigger';
+  return (
+    type === 'webhook' ||
+    type === 'schedule' ||
+    type === 'chat_trigger' ||
+    type === 'manual_trigger' ||
+    type === 'rss'
+  );
 }
 
 export function isConfigNode(type: NodeType): boolean {
@@ -231,7 +483,7 @@ export function storeAiProvider(provider: AiProviderChoice): void {
 }
 
 export function getNodeHeight(type: NodeType): number {
-  if (type === 'condition') return CONDITION_NODE_HEIGHT;
+  if (type === 'condition' || type === 'switch') return CONDITION_NODE_HEIGHT;
   if (type === 'ai_agent') return AI_AGENT_NODE_HEIGHT;
   if (isConfigNode(type)) return CONFIG_NODE_SIZE;
   return NODE_HEIGHT;
@@ -248,6 +500,17 @@ export function getNodePortLayout(type: NodeType): NodePortLayout {
       outputs: [
         { id: 'true', label: 'true', side: 'right', offsetY: 0.35, kind: 'flow' },
         { id: 'false', label: 'false', side: 'right', offsetY: 0.65, kind: 'flow' },
+      ],
+    };
+  }
+
+  if (type === 'switch') {
+    return {
+      inputs: [{ id: 'main', side: 'left', offsetY: 0.5, kind: 'flow' }],
+      outputs: [
+        { id: 'case0', label: '0', side: 'right', offsetY: 0.25, kind: 'flow' },
+        { id: 'case1', label: '1', side: 'right', offsetY: 0.5, kind: 'flow' },
+        { id: 'default', label: 'default', side: 'right', offsetY: 0.75, kind: 'flow' },
       ],
     };
   }
@@ -318,20 +581,41 @@ export function nodeColor(type: NodeType): string {
   const map: Record<string, string> = {
     webhook: 'border-amber-300 bg-amber-50',
     chat_trigger: 'border-rose-300 bg-rose-50',
+    manual_trigger: 'border-amber-300 bg-amber-50',
     schedule: 'border-amber-300 bg-amber-50',
+    rss: 'border-amber-300 bg-amber-50',
     http: 'border-[#CDDBD9] bg-white',
+    graphql: 'border-indigo-300 bg-indigo-50',
     email: 'border-[#CDDBD9] bg-white',
     slack: 'border-pink-300 bg-pink-50',
+    discord: 'border-indigo-300 bg-indigo-50',
+    telegram: 'border-sky-300 bg-sky-50',
     ai: 'border-[#9FE0DC] bg-[#F5FBFA]',
     ai_agent: 'border-[#2BBFBA]/40 bg-[#E6F7F6]',
     chat_model: 'border-sky-300 bg-sky-50',
     memory: 'border-[#9FE0DC] bg-[#E6F7F6]',
     tool: 'border-teal-300 bg-teal-50',
     condition: 'border-cyan-300 bg-cyan-50',
+    switch: 'border-cyan-300 bg-cyan-50',
     delay: 'border-cyan-300 bg-cyan-50',
     code: 'border-cyan-300 bg-cyan-50',
+    noop: 'border-[#CDDBD9] bg-white',
+    stop_and_error: 'border-red-300 bg-red-50',
+    set: 'border-violet-300 bg-violet-50',
+    filter: 'border-violet-300 bg-violet-50',
+    merge: 'border-violet-300 bg-violet-50',
+    split_out: 'border-violet-300 bg-violet-50',
+    aggregate: 'border-violet-300 bg-violet-50',
+    datetime: 'border-violet-300 bg-violet-50',
+    crypto: 'border-violet-300 bg-violet-50',
+    html: 'border-violet-300 bg-violet-50',
+    postgres: 'border-blue-300 bg-blue-50',
+    respond_webhook: 'border-amber-300 bg-amber-50',
     n8n: 'border-[#9FE0DC] bg-[#E6F7F6]',
     spreadsheet: 'border-emerald-300 bg-emerald-50',
+    facebook: 'border-blue-400 bg-blue-50',
+    instagram: 'border-pink-400 bg-pink-50',
+    linkedin: 'border-sky-400 bg-sky-50',
   };
   return map[type] ?? 'border-[#CDDBD9] bg-white';
 }

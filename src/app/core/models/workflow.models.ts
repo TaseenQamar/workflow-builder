@@ -1,6 +1,7 @@
 export type NodeType =
   | 'webhook'
   | 'chat_trigger'
+  | 'manual_trigger'
   | 'http'
   | 'ai'
   | 'ai_agent'
@@ -9,12 +10,32 @@ export type NodeType =
   | 'tool'
   | 'email'
   | 'slack'
+  | 'discord'
+  | 'telegram'
   | 'condition'
+  | 'switch'
   | 'delay'
   | 'code'
   | 'n8n'
   | 'schedule'
-  | 'spreadsheet';
+  | 'spreadsheet'
+  | 'facebook'
+  | 'instagram'
+  | 'linkedin'
+  | 'set'
+  | 'filter'
+  | 'merge'
+  | 'split_out'
+  | 'aggregate'
+  | 'noop'
+  | 'stop_and_error'
+  | 'respond_webhook'
+  | 'graphql'
+  | 'datetime'
+  | 'crypto'
+  | 'postgres'
+  | 'rss'
+  | 'html';
 
 export const CONFIG_NODE_TYPES: NodeType[] = ['chat_model', 'memory', 'tool'];
 

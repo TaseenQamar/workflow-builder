@@ -30,8 +30,10 @@ export class Dashboard implements OnInit {
 
   protected readonly workflows = signal<WorkflowRecord[]>([]);
   protected readonly runningId = signal<string | null>(null);
+  protected readonly deletingId = signal<string | null>(null);
   protected readonly lastResult = signal<Record<string, unknown> | null>(null);
   protected readonly runError = signal<string | null>(null);
+  protected readonly deleteMessage = signal<string | null>(null);
   protected readonly backendOnline = this.backendStatus.online;
   protected readonly backendHint = this.backendStatus.lastError;
   protected readonly n8nOnline = signal(false);
@@ -88,6 +90,37 @@ export class Dashboard implements OnInit {
 
   protected isRunning(id: string): boolean {
     return this.runningId() === id;
+  }
+
+  protected isDeleting(id: string): boolean {
+    return this.deletingId() === id;
+  }
+
+  protected deleteWorkflow(wf: WorkflowRecord): void {
+    const ok = window.confirm(
+      `Delete workflow "${wf.name}"?\n\nThis cannot be undone.`,
+    );
+    if (!ok) return;
+
+    this.deletingId.set(wf.id);
+    this.runError.set(null);
+    this.deleteMessage.set(null);
+
+    this.api.deleteWorkflow(wf.id).subscribe({
+      next: () => {
+        this.deletingId.set(null);
+        this.workflows.update((list) => list.filter((w) => w.id !== wf.id));
+        this.deleteMessage.set(`Deleted “${wf.name}”`);
+        this.loadWhenOnline();
+      },
+      error: (err) => {
+        this.deletingId.set(null);
+        this.runError.set(
+          err?.error?.message ?? 'Delete failed — is the backend online?',
+        );
+        this.backendStatus.refresh();
+      },
+    });
   }
 
   protected retryConnection(): void {

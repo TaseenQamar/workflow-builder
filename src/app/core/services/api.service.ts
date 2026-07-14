@@ -247,6 +247,9 @@ export class ApiService {
   }
 
   setDefaultAiProvider(provider: 'openai' | 'gemini'): Observable<{ defaultProvider: string; saved: boolean }> {
+    if (!this.base) {
+      return of({ defaultProvider: provider, saved: false });
+    }
     return this.http.post<{ defaultProvider: string; saved: boolean }>(
       `${this.base}/integrations/ai-provider`,
       { provider },

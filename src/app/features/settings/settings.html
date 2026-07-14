@@ -68,12 +68,13 @@
       <div class="mt-4 grid gap-3 sm:grid-cols-2 max-w-2xl">
         <button
           type="button"
-          class="rounded-xl border-2 p-4 text-left transition"
-          [class]="
-            isActiveProvider('openai')
-              ? 'border-[#2BBFBA] bg-[#1FA8A3]/15 ring-1 ring-[#9FE0DC]'
-              : 'border-[#CDDBD9] bg-white hover:border-[#CDDBD9]'
-          "
+          class="rounded-xl border-2 p-4 text-left transition disabled:opacity-60"
+          [class.border-[#2BBFBA]]="isActiveProvider('openai')"
+          [class.bg-[#E6F7F6]]="isActiveProvider('openai')"
+          [class.ring-1]="isActiveProvider('openai')"
+          [class.ring-[#9FE0DC]]="isActiveProvider('openai')"
+          [class.border-[#CDDBD9]]="!isActiveProvider('openai')"
+          [class.bg-white]="!isActiveProvider('openai')"
           [disabled]="savingProvider"
           (click)="selectProvider('openai')"
         >
@@ -94,19 +95,20 @@
 
         <button
           type="button"
-          class="rounded-xl border-2 p-4 text-left transition"
-          [class]="
-            isActiveProvider('gemini')
-              ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-300'
-              : 'border-[#CDDBD9] bg-white hover:border-[#CDDBD9]'
-          "
+          class="rounded-xl border-2 p-4 text-left transition disabled:opacity-60"
+          [class.border-[#2BBFBA]]="isActiveProvider('gemini')"
+          [class.bg-[#E6F7F6]]="isActiveProvider('gemini')"
+          [class.ring-1]="isActiveProvider('gemini')"
+          [class.ring-[#9FE0DC]]="isActiveProvider('gemini')"
+          [class.border-[#CDDBD9]]="!isActiveProvider('gemini')"
+          [class.bg-white]="!isActiveProvider('gemini')"
           [disabled]="savingProvider"
           (click)="selectProvider('gemini')"
         >
           <div class="flex items-center justify-between">
             <span class="text-lg">◇</span>
             @if (isActiveProvider('gemini')) {
-              <span class="rounded-full bg-emerald-500/30 px-2 py-0.5 text-[10px] text-emerald-700">Active</span>
+              <span class="rounded-full bg-[#1FA8A3]/30 px-2 py-0.5 text-[10px] text-[#17807C]">Active</span>
             }
           </div>
           <p class="mt-2 font-medium text-[#1A1A1A]">Google Gemini</p>
@@ -118,6 +120,9 @@
           }
         </button>
       </div>
+      @if (savingProvider) {
+        <p class="mt-2 text-xs text-[#757575]">Saving provider…</p>
+      }
     </section>
 
     <section class="mb-10">

@@ -1,9 +1,13 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { timeout, catchError, of, finalize } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
 import { BackendStatusService } from '../../core/services/backend-status.service';
 import { AiIntegrationStatus } from '../../core/models/workflow.models';
-import { storeAiProvider } from '../../core/constants/node-definitions';
+import {
+  readStoredAiProvider,
+  storeAiProvider,
+} from '../../core/constants/node-definitions';
 
 @Component({
   selector: 'app-settings',
@@ -21,7 +25,7 @@ export class Settings implements OnInit {
   protected readonly aiStatus = signal<AiIntegrationStatus>({
     openai: { configured: false, source: 'none' },
     gemini: { configured: false, source: 'none' },
-    defaultProvider: 'openai',
+    defaultProvider: readStoredAiProvider(),
     demoMode: true,
     message: '',
   });
@@ -57,6 +61,16 @@ export class Settings implements OnInit {
     this.backendStatus.refresh();
     this.api.getN8nHealth().subscribe((h) => this.n8nHealth.set(h));
     this.api.getAiIntegrationStatus().subscribe((s) => {
+      const offlineFallback =
+        s.message === 'Backend offline' ||
+        !!s.message?.includes('Backend API URL not set');
+      if (offlineFallback) {
+        this.aiStatus.set({
+          ...s,
+          defaultProvider: readStoredAiProvider(),
+        });
+        return;
+      }
       this.aiStatus.set(s);
       if (s.defaultProvider) {
         storeAiProvider(s.defaultProvider);
@@ -65,31 +79,45 @@ export class Settings implements OnInit {
   }
 
   protected selectProvider(provider: 'openai' | 'gemini'): void {
-    if (this.aiStatus().defaultProvider === provider || this.savingProvider) return;
+    if (this.savingProvider) return;
 
-    this.savingProvider = true;
+    // Optimistic UI — select immediately so the button never feels broken
+    storeAiProvider(provider);
+    this.aiStatus.update((s) => ({
+      ...s,
+      defaultProvider: provider,
+      message:
+        provider === 'gemini'
+          ? 'Active: Google Gemini — chat will use this provider'
+          : 'Active: OpenAI — chat will use this provider',
+    }));
     this.saveMessage.set(null);
     this.saveError.set(null);
+    this.savingProvider = true;
 
-    this.api.setDefaultAiProvider(provider).subscribe({
-      next: () => {
-        this.savingProvider = false;
+    this.api
+      .setDefaultAiProvider(provider)
+      .pipe(
+        timeout(8000),
+        catchError(() =>
+          of({ defaultProvider: provider, saved: false as boolean }),
+        ),
+        finalize(() => {
+          this.savingProvider = false;
+        }),
+      )
+      .subscribe((res) => {
         storeAiProvider(provider);
         const label = provider === 'gemini' ? 'Google Gemini' : 'OpenAI';
-        this.saveMessage.set(`${label} selected — chat/search will use this provider`);
-        this.refreshStatus();
-      },
-      error: () => {
-        this.savingProvider = false;
-        storeAiProvider(provider);
-        this.aiStatus.update((s) => ({ ...s, defaultProvider: provider }));
-        this.saveMessage.set(
-          provider === 'gemini'
-            ? 'Gemini selected (local). Will sync when the backend is online'
-            : 'OpenAI selected (local). Will sync when the backend is online',
-        );
-      },
-    });
+        if (res.saved) {
+          this.saveMessage.set(`${label} selected — chat will use this provider`);
+          this.refreshStatus();
+        } else {
+          this.saveMessage.set(
+            `${label} selected on this device. Backend sync failed — check Backend API URL / connection.`,
+          );
+        }
+      });
   }
 
   protected saveOpenaiKey(): void {
@@ -143,6 +171,6 @@ export class Settings implements OnInit {
   }
 
   protected isActiveProvider(provider: 'openai' | 'gemini'): boolean {
-    return (this.aiStatus().defaultProvider ?? 'openai') === provider;
+    return (this.aiStatus().defaultProvider ?? readStoredAiProvider()) === provider;
   }
 }

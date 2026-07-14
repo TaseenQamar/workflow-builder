@@ -13,6 +13,8 @@ import { WorkflowCanvasComponent } from './components/workflow-canvas.component'
 import { PropertiesPanelComponent } from './components/properties-panel.component';
 import { ChatPanelComponent } from './components/chat-panel.component';
 import { ApiService } from '../../core/services/api.service';
+import { NODE_CATALOG } from '../../core/constants/node-definitions';
+import { isConfigNodeType, NodeType } from '../../core/models/workflow.models';
 
 @Component({
   selector: 'app-workflow-editor',
@@ -45,22 +47,58 @@ export class WorkflowEditor implements OnInit {
 
   ngOnInit(): void {
     this.syncPanelVisibility();
-    this.api.getAiIntegrationStatus().subscribe((status) => {
-      if (status.defaultProvider) {
-        this.store.setDefaultAiProvider(status.defaultProvider);
-      }
-    });
+
+    const applyProvider = () => {
+      this.api.getAiIntegrationStatus().subscribe((status) => {
+        if (status.defaultProvider) {
+          this.store.setDefaultAiProvider(status.defaultProvider);
+        }
+      });
+    };
+
+    applyProvider();
 
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.api.getWorkflow(id).subscribe({
-        next: (wf) => this.store.loadFromRecord(wf),
+        next: (wf) => {
+          this.store.loadFromRecord(wf);
+          applyProvider();
+          this.addNodeFromQuery();
+        },
         error: () => this.store.error.set('Failed to load workflow'),
       });
       return;
     }
 
     this.store.ensureChatWorkflow();
+    this.addNodeFromQuery();
+  }
+
+  /** Node Library → Editor with ?add=set|http|… */
+  private addNodeFromQuery(): void {
+    const addType = this.route.snapshot.queryParamMap.get('add') as NodeType | null;
+    if (!addType) return;
+    const def = NODE_CATALOG.find((n) => n.type === addType);
+    if (!def) return;
+
+    const nodes = this.store.nodes();
+    const flowNodes = nodes.filter((n) => !isConfigNodeType(n.type));
+    if (flowNodes.length === 0) {
+      this.store.addNode(def, { x: 120, y: 200 });
+    } else {
+      const last = [...flowNodes].sort(
+        (a, b) => b.position.x - a.position.x || a.position.y - b.position.y,
+      )[0];
+      this.store.addNodeAfter(def, last.id, 'main');
+    }
+    this.store.message.set(`Added node: ${def.label}`);
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { add: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   @HostListener('window:resize')

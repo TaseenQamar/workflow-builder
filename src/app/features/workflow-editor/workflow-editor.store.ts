@@ -72,6 +72,8 @@ export class WorkflowEditorStore {
     this.connections.set(record.definition?.connections ?? []);
     this.selectedNodeId.set(null);
     this.connectSourceId.set(null);
+    // Keep canvas Chat Model in sync with Settings (saved WF may still say openai)
+    this.applyDefaultProviderToChatModels();
   }
 
   reset(): void {
@@ -210,10 +212,15 @@ export class WorkflowEditorStore {
     }
 
     const hasTrigger = nodes.some(
-      (n) => n.type === 'webhook' || n.type === 'chat_trigger' || n.type === 'schedule',
+      (n) =>
+        n.type === 'webhook' ||
+        n.type === 'chat_trigger' ||
+        n.type === 'schedule' ||
+        n.type === 'manual_trigger' ||
+        n.type === 'rss',
     );
     if (!hasTrigger) {
-      errors.push('Add a trigger: Chat Message Received or Webhook');
+      errors.push('Add a trigger: Chat, Webhook, Manual, Schedule, or RSS');
     }
 
     for (const agent of nodes.filter((n) => n.type === 'ai_agent')) {
@@ -279,7 +286,7 @@ export class WorkflowEditorStore {
       list.map((n) =>
         n.type === 'chat_model'
           ? { ...n, label: cfg.label, data: { ...n.data, ...cfg.data } }
-          : n.type === 'ai'
+          : n.type === 'ai' || n.type === 'ai_agent'
             ? { ...n, data: { ...n.data, provider } }
             : n,
       ),

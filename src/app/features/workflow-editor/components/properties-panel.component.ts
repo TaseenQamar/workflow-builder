@@ -256,19 +256,17 @@ export class PropertiesPanelComponent {
           { key: 'channel', label: 'Channel', value: String(d['channel'] ?? ''), type: 'text' },
           { key: 'message', label: 'Message', value: String(d['message'] ?? ''), type: 'textarea' },
         ];
-      case 'spreadsheet':
-        return [
-          { key: 'action', label: 'Action', value: String(d['action'] ?? 'add_row'), type: 'select', options: ['add_row', 'read', 'sum_column'] },
-          { key: 'sheetName', label: 'Sheet Name', value: String(d['sheetName'] ?? 'Sheet1'), type: 'text' },
-          { key: 'headers', label: 'Headers (comma-separated)', value: String(d['headers'] ?? 'Name,Value'), type: 'text' },
-          { key: 'rowCol1', label: 'Row Col 1', value: String(d['rowCol1'] ?? '{{name}}'), type: 'text' },
-          { key: 'rowCol2', label: 'Row Col 2', value: String(d['rowCol2'] ?? '{{aiResponse}}'), type: 'text' },
-        ];
       case 'condition':
         return [
           { key: 'field', label: 'Field', value: String(d['field'] ?? ''), type: 'text' },
           { key: 'operator', label: 'Operator', value: String(d['operator'] ?? 'equals'), type: 'select', options: ['equals', 'contains', 'exists'] },
           { key: 'value', label: 'Value', value: String(d['value'] ?? ''), type: 'text' },
+        ];
+      case 'switch':
+        return [
+          { key: 'field', label: 'Field', value: String(d['field'] ?? ''), type: 'text' },
+          { key: 'case0', label: 'Case 0', value: String(d['case0'] ?? ''), type: 'text' },
+          { key: 'case1', label: 'Case 1', value: String(d['case1'] ?? ''), type: 'text' },
         ];
       case 'delay':
         return [
@@ -276,7 +274,126 @@ export class PropertiesPanelComponent {
         ];
       case 'schedule':
         return [
-          { key: 'cron', label: 'Cron Expression', value: String(d['cron'] ?? ''), type: 'text' },
+          { key: 'hour', label: 'Hour (0-23, Karachi)', value: String(d['hour'] ?? '9'), type: 'text' },
+          { key: 'minute', label: 'Minute (0-59)', value: String(d['minute'] ?? '0'), type: 'text' },
+          { key: 'timezone', label: 'Timezone', value: String(d['timezone'] ?? 'Asia/Karachi'), type: 'text' },
+          { key: 'cron', label: 'Cron (optional override)', value: String(d['cron'] ?? ''), type: 'text' },
+        ];
+      case 'spreadsheet':
+        return [
+          { key: 'action', label: 'Action', value: String(d['action'] ?? 'load_posts'), type: 'select', options: ['load_posts', 'add_row', 'read', 'sum_column'] },
+          { key: 'postsCsv', label: 'Posts CSV (Message,Link,ImageUrl)', value: String(d['postsCsv'] ?? ''), type: 'textarea' },
+          { key: 'pickMode', label: 'Pick Mode', value: String(d['pickMode'] ?? 'rotate_daily'), type: 'select', options: ['rotate_daily', 'first'] },
+          { key: 'sheetName', label: 'Sheet Name', value: String(d['sheetName'] ?? 'Posts'), type: 'text' },
+          { key: 'rowCol1', label: 'Row Col 1 (add_row)', value: String(d['rowCol1'] ?? '{{name}}'), type: 'text' },
+          { key: 'rowCol2', label: 'Row Col 2 (add_row)', value: String(d['rowCol2'] ?? '{{aiResponse}}'), type: 'text' },
+        ];
+      case 'facebook':
+        return [
+          { key: 'pageId', label: 'Facebook Page ID', value: String(d['pageId'] ?? ''), type: 'text' },
+          { key: 'accessToken', label: 'Page Access Token', value: String(d['accessToken'] ?? ''), type: 'text' },
+          { key: 'message', label: 'Message', value: String(d['message'] ?? '{{nextPost.message}}'), type: 'textarea' },
+          { key: 'link', label: 'Link (optional)', value: String(d['link'] ?? '{{nextPost.link}}'), type: 'text' },
+          { key: 'dryRun', label: 'Dry Run (true/false)', value: String(d['dryRun'] ?? 'true'), type: 'select', options: ['true', 'false'] },
+        ];
+      case 'instagram':
+        return [
+          { key: 'igUserId', label: 'Instagram Business User ID', value: String(d['igUserId'] ?? ''), type: 'text' },
+          { key: 'accessToken', label: 'Access Token', value: String(d['accessToken'] ?? ''), type: 'text' },
+          { key: 'caption', label: 'Caption', value: String(d['caption'] ?? '{{nextPost.message}}'), type: 'textarea' },
+          { key: 'imageUrl', label: 'Image URL (required)', value: String(d['imageUrl'] ?? '{{nextPost.imageUrl}}'), type: 'text' },
+          { key: 'dryRun', label: 'Dry Run (true/false)', value: String(d['dryRun'] ?? 'true'), type: 'select', options: ['true', 'false'] },
+        ];
+      case 'linkedin':
+        return [
+          { key: 'accessToken', label: 'Access Token', value: String(d['accessToken'] ?? ''), type: 'text' },
+          { key: 'authorUrn', label: 'Author URN', value: String(d['authorUrn'] ?? ''), type: 'text' },
+          { key: 'text', label: 'Post Text', value: String(d['text'] ?? '{{nextPost.message}}'), type: 'textarea' },
+          { key: 'dryRun', label: 'Dry Run (true/false)', value: String(d['dryRun'] ?? 'true'), type: 'select', options: ['true', 'false'] },
+        ];
+      case 'set':
+        return [
+          {
+            key: 'assignments',
+            label: 'Assignments (key=value per line)',
+            value: String(d['assignments'] ?? ''),
+            type: 'textarea',
+          },
+        ];
+      case 'filter':
+        return [
+          { key: 'field', label: 'Field', value: String(d['field'] ?? ''), type: 'text' },
+          { key: 'operator', label: 'Operator', value: String(d['operator'] ?? 'equals'), type: 'select', options: ['equals', 'contains', 'exists', 'notEmpty'] },
+          { key: 'value', label: 'Value', value: String(d['value'] ?? ''), type: 'text' },
+        ];
+      case 'merge':
+        return [
+          { key: 'outputKey', label: 'Output Key', value: String(d['outputKey'] ?? 'merged'), type: 'text' },
+        ];
+      case 'split_out':
+        return [
+          { key: 'field', label: 'Array Field', value: String(d['field'] ?? 'items'), type: 'text' },
+        ];
+      case 'aggregate':
+        return [
+          { key: 'field', label: 'Field', value: String(d['field'] ?? 'items'), type: 'text' },
+          { key: 'operation', label: 'Operation', value: String(d['operation'] ?? 'count'), type: 'select', options: ['count', 'join', 'sum'] },
+        ];
+      case 'stop_and_error':
+        return [
+          { key: 'message', label: 'Error Message', value: String(d['message'] ?? ''), type: 'textarea' },
+        ];
+      case 'respond_webhook':
+        return [
+          { key: 'statusCode', label: 'Status Code', value: String(d['statusCode'] ?? '200'), type: 'text' },
+          { key: 'body', label: 'Response Body', value: String(d['body'] ?? ''), type: 'textarea' },
+        ];
+      case 'discord':
+        return [
+          { key: 'webhookUrl', label: 'Discord Webhook URL', value: String(d['webhookUrl'] ?? ''), type: 'text' },
+          { key: 'content', label: 'Message', value: String(d['content'] ?? ''), type: 'textarea' },
+        ];
+      case 'telegram':
+        return [
+          { key: 'botToken', label: 'Bot Token', value: String(d['botToken'] ?? ''), type: 'text' },
+          { key: 'chatId', label: 'Chat ID', value: String(d['chatId'] ?? ''), type: 'text' },
+          { key: 'text', label: 'Text', value: String(d['text'] ?? ''), type: 'textarea' },
+        ];
+      case 'graphql':
+        return [
+          { key: 'url', label: 'Endpoint URL', value: String(d['url'] ?? ''), type: 'text' },
+          { key: 'query', label: 'Query', value: String(d['query'] ?? ''), type: 'textarea' },
+          { key: 'variables', label: 'Variables JSON', value: String(d['variables'] ?? '{}'), type: 'textarea' },
+        ];
+      case 'datetime':
+        return [
+          { key: 'outputKey', label: 'Output Key', value: String(d['outputKey'] ?? 'now'), type: 'text' },
+          { key: 'format', label: 'Format', value: String(d['format'] ?? 'iso'), type: 'select', options: ['iso', 'unix', 'locale'] },
+        ];
+      case 'crypto':
+        return [
+          { key: 'algorithm', label: 'Algorithm', value: String(d['algorithm'] ?? 'sha256'), type: 'select', options: ['sha256', 'md5'] },
+          { key: 'value', label: 'Value', value: String(d['value'] ?? ''), type: 'text' },
+          { key: 'outputKey', label: 'Output Key', value: String(d['outputKey'] ?? 'hash'), type: 'text' },
+        ];
+      case 'html':
+        return [
+          { key: 'field', label: 'HTML Field', value: String(d['field'] ?? 'htmlData'), type: 'text' },
+          { key: 'outputKey', label: 'Output Key', value: String(d['outputKey'] ?? 'htmlText'), type: 'text' },
+        ];
+      case 'rss':
+        return [
+          { key: 'url', label: 'Feed URL', value: String(d['url'] ?? ''), type: 'text' },
+          { key: 'limit', label: 'Limit', value: String(d['limit'] ?? '5'), type: 'text' },
+        ];
+      case 'postgres':
+        return [
+          { key: 'mode', label: 'Mode', value: String(d['mode'] ?? 'select'), type: 'select', options: ['select', 'raw'] },
+          { key: 'query', label: 'SQL Query', value: String(d['query'] ?? ''), type: 'textarea' },
+        ];
+      case 'code':
+        return [
+          { key: 'code', label: 'JavaScript', value: String(d['code'] ?? ''), type: 'textarea' },
         ];
       default:
         return [];
@@ -287,8 +404,26 @@ export class PropertiesPanelComponent {
     const node = this.store.selectedNode();
     if (!node) return;
     const parsed =
-      key === 'seconds' || key === 'windowSize' ? Number(value) : value;
-    this.store.updateNodeData(node.id, { [key]: parsed });
+      key === 'seconds' ||
+      key === 'windowSize' ||
+      key === 'limit' ||
+      key === 'statusCode' ||
+      key === 'hour' ||
+      key === 'minute'
+        ? Number(value)
+        : value;
+
+    const patch: Record<string, unknown> = { [key]: parsed };
+
+    // Keep cron in sync when editing Schedule hour/minute
+    if (node.type === 'schedule' && (key === 'hour' || key === 'minute')) {
+      const hour = key === 'hour' ? Number(value) : Number(node.data['hour'] ?? 9);
+      const minute =
+        key === 'minute' ? Number(value) : Number(node.data['minute'] ?? 0);
+      patch['cron'] = `${minute} ${hour} * * *`;
+    }
+
+    this.store.updateNodeData(node.id, patch);
   }
 
   protected onModeChange(mode: ExecutionMode): void {
