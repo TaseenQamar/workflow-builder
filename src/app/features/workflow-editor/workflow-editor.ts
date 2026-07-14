@@ -3,6 +3,7 @@ import {
   HostListener,
   inject,
   OnInit,
+  signal,
 } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { WorkflowEditorStore } from './workflow-editor.store';
@@ -24,6 +25,9 @@ import { ApiService } from '../../core/services/api.service';
   ],
   providers: [WorkflowEditorStore, WorkflowChatService],
   templateUrl: './workflow-editor.html',
+  host: {
+    class: 'flex min-h-0 flex-1 flex-col overflow-hidden',
+  },
 })
 export class WorkflowEditor implements OnInit {
   private readonly api = inject(ApiService);
@@ -32,7 +36,15 @@ export class WorkflowEditor implements OnInit {
   protected readonly store = inject(WorkflowEditorStore);
   private readonly chat = inject(WorkflowChatService);
 
+  protected readonly showPalette = signal(
+    typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
+  );
+  protected readonly showProps = signal(
+    typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
+  );
+
   ngOnInit(): void {
+    this.syncPanelVisibility();
     this.api.getAiIntegrationStatus().subscribe((status) => {
       if (status.defaultProvider) {
         this.store.setDefaultAiProvider(status.defaultProvider);
@@ -51,9 +63,48 @@ export class WorkflowEditor implements OnInit {
     this.store.ensureChatWorkflow();
   }
 
+  @HostListener('window:resize')
+  onResize(): void {
+    this.syncPanelVisibility();
+  }
+
   @HostListener('document:keydown.escape')
   onEscape(): void {
     this.store.connectSourceId.set(null);
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      this.closePanels();
+    }
+  }
+
+  private syncPanelVisibility(): void {
+    if (typeof window === 'undefined') return;
+    const desktop = window.innerWidth >= 1024;
+    if (desktop) {
+      this.showPalette.set(true);
+      this.showProps.set(true);
+    } else {
+      this.showPalette.set(false);
+      this.showProps.set(false);
+    }
+  }
+
+  protected togglePalette(): void {
+    const next = !this.showPalette();
+    this.showPalette.set(next);
+    if (next) this.showProps.set(false);
+  }
+
+  protected toggleProps(): void {
+    const next = !this.showProps();
+    this.showProps.set(next);
+    if (next) this.showPalette.set(false);
+  }
+
+  protected closePanels(): void {
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      this.showPalette.set(false);
+      this.showProps.set(false);
+    }
   }
 
   protected save(): void {
@@ -86,7 +137,9 @@ export class WorkflowEditor implements OnInit {
       },
       error: (err) => {
         this.store.saving.set(false);
-        this.store.error.set(err?.error?.message ?? 'Save failed — is backend running on :3000?');
+        this.store.error.set(
+          err?.error?.message ?? 'Save failed — is the backend running?',
+        );
       },
     });
   }

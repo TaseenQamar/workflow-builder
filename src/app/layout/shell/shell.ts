@@ -1,5 +1,18 @@
-import { Component, signal } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import {
+  Component,
+  HostListener,
+  inject,
+  signal,
+} from '@angular/core';
+import {
+  NavigationEnd,
+  Router,
+  RouterLink,
+  RouterLinkActive,
+  RouterOutlet,
+} from '@angular/router';
+import { filter } from 'rxjs/operators';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 interface NavItem {
   label: string;
@@ -15,7 +28,14 @@ interface NavItem {
   styleUrl: './shell.scss',
 })
 export class Shell {
+  private readonly router = inject(Router);
+
   protected readonly appName = signal('Workflow Builder');
+  protected readonly sidebarOpen = signal(false);
+  protected readonly isDesktop = signal(
+    typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
+  );
+
   protected readonly navItems = signal<NavItem[]>([
     {
       label: 'Dashboard',
@@ -48,4 +68,34 @@ export class Shell {
       description: 'Integrations & preferences',
     },
   ]);
+
+  constructor() {
+    this.router.events
+      .pipe(
+        filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+        takeUntilDestroyed(),
+      )
+      .subscribe(() => {
+        if (!this.isDesktop()) {
+          this.sidebarOpen.set(false);
+        }
+      });
+  }
+
+  @HostListener('window:resize')
+  onResize(): void {
+    const desktop = window.innerWidth >= 1024;
+    this.isDesktop.set(desktop);
+    if (desktop) {
+      this.sidebarOpen.set(false);
+    }
+  }
+
+  protected toggleSidebar(): void {
+    this.sidebarOpen.update((v) => !v);
+  }
+
+  protected closeSidebar(): void {
+    this.sidebarOpen.set(false);
+  }
 }

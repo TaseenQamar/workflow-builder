@@ -1,0 +1,15 @@
+:host {
+  display: block;
+  height: 100%;
+  min-height: 0;
+}
+
+/* Routed page components are siblings of router-outlet */
+.page-host > :not(router-outlet) {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}

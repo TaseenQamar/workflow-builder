@@ -1,10 +1,10 @@
 <div class="flex h-full flex-col overflow-hidden">
-  <header class="border-b border-[#EFE8E1] bg-white/70 px-8 py-6 backdrop-blur">
-    <h1 class="text-2xl font-bold text-[#1A1A1A]">Settings</h1>
+  <header class="shrink-0 border-b border-[#EFE8E1] bg-white/70 px-4 py-4 backdrop-blur sm:px-8 sm:py-6">
+    <h1 class="text-xl font-bold text-[#1A1A1A] sm:text-2xl">Settings</h1>
     <p class="mt-1 text-sm text-[#757575]">API keys & backend status</p>
   </header>
 
-  <div class="flex-1 overflow-y-auto p-8">
+  <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-8">
     @if (saveMessage()) {
       <div class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-700">
         {{ saveMessage() }}

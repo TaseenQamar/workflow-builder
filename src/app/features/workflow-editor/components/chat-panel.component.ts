@@ -16,12 +16,12 @@ export interface ChatMessage {
       [class.ring-2]="highlight()"
       [class.ring-rose-500/60]="highlight()"
     >
-      <div class="flex items-center justify-between border-b border-[#EFE8E1]/80 px-4 py-2">
-        <div class="flex items-center gap-2">
-          <span class="text-base">💬</span>
-          <div>
-            <p class="text-sm font-medium text-[#1A1A1A]">Chat Trigger — Type your prompt here</p>
-            <p class="text-[11px] text-[#9A9A9A]">Like n8n: message → run workflow → reply below</p>
+      <div class="flex items-center justify-between gap-2 border-b border-[#EFE8E1]/80 px-3 py-2 sm:px-4">
+        <div class="flex min-w-0 items-center gap-2">
+          <span class="shrink-0 text-base">💬</span>
+          <div class="min-w-0">
+            <p class="truncate text-sm font-medium text-[#1A1A1A]">Chat Trigger</p>
+            <p class="hidden text-[11px] text-[#9A9A9A] sm:block">Message → run workflow → reply below</p>
           </div>
         </div>
         @if (running()) {
@@ -29,7 +29,7 @@ export interface ChatMessage {
         }
       </div>
 
-      <div class="max-h-48 min-h-[4rem] overflow-y-auto px-4 py-3">
+      <div class="max-h-36 min-h-[3.5rem] overflow-y-auto overscroll-contain px-3 py-2 sm:max-h-48 sm:px-4 sm:py-3">
         @if (messages().length === 0 && !running()) {
           <p class="text-center text-xs text-[#9A9A9A]">
             Type your first message and click Chat — the AI Agent reply will appear here
@@ -58,19 +58,19 @@ export interface ChatMessage {
         }
       </div>
 
-      <div class="flex items-end gap-3 border-t border-[#EFE8E1] px-4 py-3">
+      <div class="flex items-end gap-2 border-t border-[#EFE8E1] px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3">
         <textarea
           rows="2"
-          class="min-h-[44px] flex-1 resize-none rounded-xl border border-[#E5DDD4] bg-[#FFF8F4] px-4 py-2.5 text-sm text-[#1A1A1A] outline-none placeholder:text-[#9A9A9A] focus:border-[#F06225]"
+          class="min-h-[44px] flex-1 resize-none rounded-xl border border-[#E5DDD4] bg-[#FFF8F4] px-3 py-2.5 text-sm text-[#1A1A1A] outline-none placeholder:text-[#9A9A9A] focus:border-[#F06225] sm:px-4"
           [ngModel]="inputText()"
           (ngModelChange)="inputTextChange.emit($event)"
           (keydown.enter)="$event.preventDefault(); send.emit()"
           [disabled]="running()"
-          placeholder="Type your prompt / message..."
+          placeholder="Type your prompt..."
         ></textarea>
         <button
           type="button"
-          class="shrink-0 rounded-xl bg-[#F06225] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#E5551A] disabled:opacity-50"
+          class="shrink-0 rounded-xl bg-[#F06225] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#E5551A] disabled:opacity-50 sm:px-5"
           [disabled]="running() || !inputText().trim()"
           (click)="send.emit()"
         >
