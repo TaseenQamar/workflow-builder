@@ -13,14 +13,71 @@ import {
   WorkflowRecord,
 } from '../models/workflow.models';
 
+const API_STORAGE_KEY = 'wb-api-url';
+
+function normalizeApiBase(url: string): string {
+  const trimmed = url.trim().replace(/\/+$/, '');
+  if (!trimmed) return environment.apiUrl;
+  return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
+}
+
+function resolveApiBase(): string {
+  if (typeof window !== 'undefined') {
+    const fromQuery = new URLSearchParams(window.location.search).get('api');
+    if (fromQuery) {
+      const normalized = normalizeApiBase(fromQuery);
+      try {
+        localStorage.setItem(API_STORAGE_KEY, normalized);
+      } catch {
+        /* ignore */
+      }
+      return normalized;
+    }
+    try {
+      const saved = localStorage.getItem(API_STORAGE_KEY);
+      if (saved) return normalizeApiBase(saved);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (
+    environment.production &&
+    environment.apiUrl.includes('REPLACE_WITH_BACKEND_URL')
+  ) {
+    return '';
+  }
+
+  return environment.apiUrl;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private readonly http = inject(HttpClient);
-  private readonly base = environment.apiUrl;
+  private base = resolveApiBase();
+
+  get apiBase(): string {
+    return this.base;
+  }
+
+  /** Root without /api — used for /health */
+  get apiOrigin(): string {
+    return this.base.replace(/\/api\/?$/, '');
+  }
+
+  setApiBase(url: string): void {
+    this.base = normalizeApiBase(url);
+    try {
+      localStorage.setItem(API_STORAGE_KEY, this.base);
+    } catch {
+      /* ignore */
+    }
+  }
 
   // ── Workflows ──────────────────────────────────────────
 
   getWorkflows(): Observable<WorkflowRecord[]> {
+    if (!this.base) return of([]);
     return this.http.get<WorkflowRecord[]>(`${this.base}/workflows`).pipe(
       catchError(() => of([])),
     );
@@ -106,6 +163,7 @@ export class ApiService {
   // ── Executions ─────────────────────────────────────────
 
   getExecutions(workflowId?: string): Observable<ExecutionRecord[]> {
+    if (!this.base) return of([]);
     const params = workflowId ? `?workflowId=${workflowId}` : '';
     return this.http
       .get<ExecutionRecord[]>(`${this.base}/executions${params}`)
@@ -117,6 +175,7 @@ export class ApiService {
   }
 
   getExecutionStats(): Observable<ExecutionStats | null> {
+    if (!this.base) return of(null);
     return this.http
       .get<ExecutionStats>(`${this.base}/executions/stats`)
       .pipe(catchError(() => of(null)));
@@ -125,6 +184,7 @@ export class ApiService {
   // ── Nodes ──────────────────────────────────────────────
 
   getNodeTypes(): Observable<NodeTypeInfo[]> {
+    if (!this.base) return of([]);
     return this.http
       .get<{ types: NodeTypeInfo[] }>(`${this.base}/nodes/types`)
       .pipe(
@@ -136,12 +196,16 @@ export class ApiService {
   // ── n8n ──────────────────────────────────────────────
 
   getN8nHealth(): Observable<N8nHealth> {
+    if (!this.base) {
+      return of({ connected: false, api: false, webhook: false });
+    }
     return this.http
       .get<N8nHealth>(`${this.base}/n8n/health`)
       .pipe(catchError(() => of({ connected: false, api: false, webhook: false })));
   }
 
   getN8nWorkflows(): Observable<unknown[]> {
+    if (!this.base) return of([]);
     return this.http
       .get<unknown[]>(`${this.base}/n8n/workflows`)
       .pipe(catchError(() => of([])));
@@ -150,13 +214,25 @@ export class ApiService {
   // ── Health ───────────────────────────────────────────
 
   checkBackendHealth(): Observable<boolean> {
-    return this.http.get<{ status: string; database: string }>('/health').pipe(
+    if (!this.apiOrigin || this.apiOrigin.includes('REPLACE_WITH_BACKEND_URL')) {
+      return of(false);
+    }
+    return this.http.get<{ status: string }>(`${this.apiOrigin}/health`).pipe(
       map((r) => r.status === 'ok'),
       catchError(() => of(false)),
     );
   }
 
   getAiIntegrationStatus(): Observable<AiIntegrationStatus> {
+    if (!this.base) {
+      return of({
+        openai: { configured: false, source: 'none' },
+        gemini: { configured: false, source: 'none' },
+        defaultProvider: 'openai' as const,
+        demoMode: true,
+        message: 'Backend API URL set nahi — Settings mein Render URL dalein',
+      });
+    }
     return this.http.get<AiIntegrationStatus>(`${this.base}/integrations/status/ai`).pipe(
       catchError(() =>
         of({

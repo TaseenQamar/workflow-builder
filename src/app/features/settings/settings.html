@@ -17,6 +17,37 @@
     }
 
     <section class="mb-10">
+      <h2 class="text-lg font-medium text-[#1A1A1A]">Backend API URL (Production)</h2>
+      <p class="mt-1 text-sm text-[#757575]">
+        Render / live backend URL yahan dalein. Example:
+        <code class="text-[#4A4A4A]">https://workflow-builder-api.onrender.com</code>
+      </p>
+      <div class="mt-3 flex max-w-2xl flex-col gap-2 sm:flex-row">
+        <input
+          class="flex-1 rounded-lg border border-[#E5DDD4] bg-white px-3 py-2 text-sm text-[#1A1A1A] outline-none focus:border-[#F06225]"
+          [(ngModel)]="backendUrl"
+          placeholder="https://your-api.onrender.com"
+        />
+        <button
+          type="button"
+          class="rounded-lg bg-[#F06225] px-4 py-2 text-sm font-medium text-white hover:bg-[#E5551A]"
+          (click)="saveBackendUrl()"
+        >
+          Save & Connect
+        </button>
+      </div>
+      <p class="mt-2 text-xs text-[#757575]">
+        Current: <code>{{ api.apiBase || '(not set)' }}</code>
+        · Status:
+        @if (backendOnline()) {
+          <span class="text-emerald-600">Online</span>
+        } @else {
+          <span class="text-red-600">Offline</span>
+        }
+      </p>
+    </section>
+
+    <section class="mb-10">
       <h2 class="text-lg font-medium text-[#1A1A1A]">Default AI Provider</h2>
       <p class="mt-1 text-sm text-[#757575]">
         Jo select karenge chat / search <strong class="text-[#4A4A4A]">usi se</strong> chalega

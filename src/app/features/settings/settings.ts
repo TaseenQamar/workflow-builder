@@ -10,7 +10,7 @@ import { storeAiProvider } from '../../core/constants/node-definitions';
   templateUrl: './settings.html',
 })
 export class Settings implements OnInit {
-  private readonly api = inject(ApiService);
+  protected readonly api = inject(ApiService);
 
   protected readonly backendOnline = signal(false);
   protected readonly n8nHealth = signal({ connected: false, api: false, webhook: false });
@@ -24,6 +24,7 @@ export class Settings implements OnInit {
 
   protected openaiKey = '';
   protected geminiKey = '';
+  protected backendUrl = '';
   protected savingOpenai = false;
   protected savingGemini = false;
   protected savingProvider = false;
@@ -31,6 +32,20 @@ export class Settings implements OnInit {
   protected saveError = signal<string | null>(null);
 
   ngOnInit(): void {
+    this.backendUrl = this.api.apiOrigin || this.api.apiBase || '';
+    this.refreshStatus();
+  }
+
+  protected saveBackendUrl(): void {
+    const url = this.backendUrl.trim();
+    if (!url) {
+      this.saveError.set('Backend URL dalein — e.g. https://your-api.onrender.com');
+      return;
+    }
+    this.api.setApiBase(url);
+    this.backendUrl = this.api.apiOrigin;
+    this.saveMessage.set(`Backend URL saved: ${this.api.apiBase}`);
+    this.saveError.set(null);
     this.refreshStatus();
   }
 
