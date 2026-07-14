@@ -12,11 +12,11 @@ export interface ChatMessage {
   imports: [FormsModule],
   template: `
     <div
-      class="shrink-0 border-t border-[#EFE8E1] bg-white/95 transition-shadow"
+      class="shrink-0 border-t border-[#D9E5E3] bg-white/95 transition-shadow"
       [class.ring-2]="highlight()"
       [class.ring-rose-500/60]="highlight()"
     >
-      <div class="flex items-center justify-between gap-2 border-b border-[#EFE8E1]/80 px-3 py-2 sm:px-4">
+      <div class="flex items-center justify-between gap-2 border-b border-[#D9E5E3]/80 px-3 py-2 sm:px-4">
         <div class="flex min-w-0 items-center gap-2">
           <span class="shrink-0 text-base">💬</span>
           <div class="min-w-0">
@@ -25,7 +25,7 @@ export interface ChatMessage {
           </div>
         </div>
         @if (running()) {
-          <span class="animate-pulse text-xs text-[#F06225]">Running...</span>
+          <span class="animate-pulse text-xs text-[#2BBFBA]">Running...</span>
         }
       </div>
 
@@ -41,10 +41,10 @@ export interface ChatMessage {
                 <div
                   [class]="
                     msg.role === 'user'
-                      ? 'max-w-[85%] rounded-2xl rounded-br-md bg-[#F06225] px-4 py-2 text-sm text-white'
+                      ? 'max-w-[85%] rounded-2xl rounded-br-md bg-[#2BBFBA] px-4 py-2 text-sm text-white'
                       : msg.role === 'error'
                         ? 'max-w-[85%] rounded-2xl rounded-bl-md border border-red-500/40 bg-red-50 px-4 py-2 text-sm text-red-600'
-                        : 'max-w-[85%] rounded-2xl rounded-bl-md border border-[#E5DDD4] bg-[#FFF8F4] px-4 py-2 text-sm text-[#1A1A1A]'
+                        : 'max-w-[85%] rounded-2xl rounded-bl-md border border-[#CDDBD9] bg-[#F5FBFA] px-4 py-2 text-sm text-[#1A1A1A]'
                   "
                 >
                   {{ msg.text }}
@@ -58,10 +58,10 @@ export interface ChatMessage {
         }
       </div>
 
-      <div class="flex items-end gap-2 border-t border-[#EFE8E1] px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3">
+      <div class="flex items-end gap-2 border-t border-[#D9E5E3] px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3">
         <textarea
           rows="2"
-          class="min-h-[44px] flex-1 resize-none rounded-xl border border-[#E5DDD4] bg-[#FFF8F4] px-3 py-2.5 text-sm text-[#1A1A1A] outline-none placeholder:text-[#9A9A9A] focus:border-[#F06225] sm:px-4"
+          class="min-h-[44px] flex-1 resize-none rounded-xl border border-[#CDDBD9] bg-[#F5FBFA] px-3 py-2.5 text-sm text-[#1A1A1A] outline-none placeholder:text-[#9A9A9A] focus:border-[#2BBFBA] sm:px-4"
           [ngModel]="inputText()"
           (ngModelChange)="inputTextChange.emit($event)"
           (keydown.enter)="$event.preventDefault(); send.emit()"
@@ -70,7 +70,7 @@ export interface ChatMessage {
         ></textarea>
         <button
           type="button"
-          class="shrink-0 rounded-xl bg-[#F06225] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#E5551A] disabled:opacity-50 sm:px-5"
+          class="shrink-0 rounded-xl bg-[#2BBFBA] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#1FA8A3] disabled:opacity-50 sm:px-5"
           [disabled]="running() || !inputText().trim()"
           (click)="send.emit()"
         >

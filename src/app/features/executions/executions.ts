@@ -1,5 +1,6 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, effect, inject, OnInit, signal } from '@angular/core';
 import { ApiService } from '../../core/services/api.service';
+import { BackendStatusService } from '../../core/services/backend-status.service';
 import { ExecutionRecord } from '../../core/models/workflow.models';
 
 interface ExecutionRow {
@@ -18,44 +19,48 @@ interface ExecutionRow {
 })
 export class Executions implements OnInit {
   private readonly api = inject(ApiService);
+  private readonly backendStatus = inject(BackendStatusService);
 
   protected readonly executions = signal<ExecutionRow[]>([]);
   protected readonly loading = signal(true);
-  protected readonly backendOnline = signal(false);
+  protected readonly backendOnline = this.backendStatus.online;
+
+  constructor() {
+    effect(() => {
+      if (this.backendStatus.online()) {
+        this.fetchRows();
+      } else {
+        this.executions.set([]);
+        this.loading.set(false);
+      }
+    });
+  }
 
   ngOnInit(): void {
-    this.loadExecutions();
+    this.backendStatus.refresh();
   }
 
   protected refresh(): void {
-    this.loadExecutions();
+    this.backendStatus.refresh();
+    if (this.backendOnline()) {
+      this.fetchRows();
+    }
   }
 
   protected statusClass(status: ExecutionRow['status']): string {
     const classes: Record<ExecutionRow['status'], string> = {
       success: 'bg-emerald-50 text-emerald-700',
       failed: 'bg-red-50 text-red-600',
-      running: 'bg-[#FFF2EB] text-[#F06225]',
+      running: 'bg-[#E6F7F6] text-[#2BBFBA]',
     };
     return classes[status];
   }
 
-  private loadExecutions(): void {
+  private fetchRows(): void {
     this.loading.set(true);
-
-    this.api.checkBackendHealth().subscribe((connected) => {
-      this.backendOnline.set(connected);
-
-      if (!connected) {
-        this.executions.set([]);
-        this.loading.set(false);
-        return;
-      }
-
-      this.api.getExecutions().subscribe((data) => {
-        this.executions.set(data.map((e) => this.toRow(e)));
-        this.loading.set(false);
-      });
+    this.api.getExecutions().subscribe((data) => {
+      this.executions.set(data.map((e) => this.toRow(e)));
+      this.loading.set(false);
     });
   }
 

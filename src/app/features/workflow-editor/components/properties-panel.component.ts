@@ -18,7 +18,7 @@ import { ExecutionMode } from '../../../core/models/workflow.models';
           <div>
             <label class="block text-xs text-[#757575]">Workflow Name</label>
             <input
-              class="mt-1 w-full rounded-lg border border-[#E5DDD4] bg-[#FFF8F4] px-3 py-2 text-sm text-[#1A1A1A] outline-none focus:border-[#F06225]"
+              class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-[#F5FBFA] px-3 py-2 text-sm text-[#1A1A1A] outline-none focus:border-[#2BBFBA]"
               [ngModel]="store.workflowName()"
               (ngModelChange)="store.workflowName.set($event)"
             />
@@ -26,7 +26,7 @@ import { ExecutionMode } from '../../../core/models/workflow.models';
           <div>
             <label class="block text-xs text-[#757575]">Execution Mode</label>
             <select
-              class="mt-1 w-full rounded-lg border border-[#E5DDD4] bg-[#FFF8F4] px-3 py-2 text-sm text-[#1A1A1A] outline-none focus:border-[#F06225]"
+              class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-[#F5FBFA] px-3 py-2 text-sm text-[#1A1A1A] outline-none focus:border-[#2BBFBA]"
               [ngModel]="store.executionMode()"
               (ngModelChange)="onModeChange($event)"
             >
@@ -37,10 +37,10 @@ import { ExecutionMode } from '../../../core/models/workflow.models';
           <p class="text-xs text-[#9A9A9A]">
             Nodes: {{ store.nodes().length }} · Connections: {{ store.connections().length }}
           </p>
-          <p class="rounded-lg border border-[#FFE8DC] bg-[#E5551A]/5 p-3 text-xs text-[#757575]">
-            Connect nodes with <strong class="text-[#F06225]">wires</strong> — they run in that order:
-            Chat → HTTP → AI Agent. Type a prompt below and click <strong class="text-[#F06225]">Chat</strong>.
-            <a routerLink="/settings" class="mt-2 block text-[#F06225] hover:underline">API key →</a>
+          <p class="rounded-lg border border-[#D5F2F0] bg-[#1FA8A3]/5 p-3 text-xs text-[#757575]">
+            Connect nodes with <strong class="text-[#2BBFBA]">wires</strong> — they run in that order:
+            Chat → HTTP → AI Agent. Type a prompt below and click <strong class="text-[#2BBFBA]">Chat</strong>.
+            <a routerLink="/settings" class="mt-2 block text-[#2BBFBA] hover:underline">API key →</a>
           </p>
         </div>
       } @else {
@@ -48,7 +48,7 @@ import { ExecutionMode } from '../../../core/models/workflow.models';
           <div>
             <label class="block text-xs text-[#757575]">Label</label>
             <input
-              class="mt-1 w-full rounded-lg border border-[#E5DDD4] bg-[#FFF8F4] px-3 py-2 text-sm text-[#1A1A1A] outline-none focus:border-[#F06225]"
+              class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-[#F5FBFA] px-3 py-2 text-sm text-[#1A1A1A] outline-none focus:border-[#2BBFBA]"
               [ngModel]="store.selectedNode()!.label"
               (ngModelChange)="store.updateNodeLabel(store.selectedNode()!.id, $event)"
             />
@@ -90,10 +90,10 @@ import { ExecutionMode } from '../../../core/models/workflow.models';
                       class="rounded-lg px-2 py-1.5 text-xs"
                       [class]="
                         msg.role === 'user'
-                          ? 'bg-[#F06225]/30 text-[#C94512]'
+                          ? 'bg-[#2BBFBA]/30 text-[#17807C]'
                           : msg.role === 'error'
                             ? 'bg-red-50 text-red-600'
-                            : 'bg-[#FFF8F4] text-[#4A4A4A]'
+                            : 'bg-[#F5FBFA] text-[#4A4A4A]'
                       "
                     >
                       {{ msg.text }}
@@ -111,8 +111,8 @@ import { ExecutionMode } from '../../../core/models/workflow.models';
           }
 
           @if (store.selectedNode()!.type === 'ai_agent') {
-            <div class="rounded-lg border border-[#FFD0B8] bg-[#FFF8F4] p-3 text-xs">
-              <p class="font-medium text-[#F06225]">AI Agent</p>
+            <div class="rounded-lg border border-[#9FE0DC] bg-[#F5FBFA] p-3 text-xs">
+              <p class="font-medium text-[#2BBFBA]">AI Agent</p>
               <ul class="mt-2 space-y-1 text-[#757575]">
                 <li>{{ agentStatus().chatModel ? '✓' : '✗' }} Chat Model</li>
                 <li>{{ agentStatus().memory ? '✓' : '○' }} Memory</li>
@@ -121,7 +121,7 @@ import { ExecutionMode } from '../../../core/models/workflow.models';
               @if (!agentStatus().chatModel) {
                 <button
                   type="button"
-                  class="mt-3 w-full rounded-lg border border-[#FFD0B8] px-3 py-2 text-[#F06225] hover:bg-[#FFF2EB]"
+                  class="mt-3 w-full rounded-lg border border-[#9FE0DC] px-3 py-2 text-[#2BBFBA] hover:bg-[#E6F7F6]"
                   (click)="store.attachAgentDefaults(store.selectedNode()!.id)"
                 >
                   Attach Model + Memory
@@ -135,14 +135,14 @@ import { ExecutionMode } from '../../../core/models/workflow.models';
               <label class="block text-xs text-[#757575]">{{ field.label }}</label>
               @if (field.type === 'textarea') {
                 <textarea
-                  class="mt-1 w-full rounded-lg border border-[#E5DDD4] bg-[#FFF8F4] px-3 py-2 text-sm text-[#1A1A1A] outline-none focus:border-[#F06225]"
+                  class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-[#F5FBFA] px-3 py-2 text-sm text-[#1A1A1A] outline-none focus:border-[#2BBFBA]"
                   rows="3"
                   [ngModel]="field.value"
                   (ngModelChange)="updateField(field.key, $event)"
                 ></textarea>
               } @else if (field.type === 'select') {
                 <select
-                  class="mt-1 w-full rounded-lg border border-[#E5DDD4] bg-[#FFF8F4] px-3 py-2 text-sm text-[#1A1A1A] outline-none focus:border-[#F06225]"
+                  class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-[#F5FBFA] px-3 py-2 text-sm text-[#1A1A1A] outline-none focus:border-[#2BBFBA]"
                   [ngModel]="field.value"
                   (ngModelChange)="updateField(field.key, $event)"
                 >
@@ -152,7 +152,7 @@ import { ExecutionMode } from '../../../core/models/workflow.models';
                 </select>
               } @else {
                 <input
-                  class="mt-1 w-full rounded-lg border border-[#E5DDD4] bg-[#FFF8F4] px-3 py-2 text-sm text-[#1A1A1A] outline-none focus:border-[#F06225]"
+                  class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-[#F5FBFA] px-3 py-2 text-sm text-[#1A1A1A] outline-none focus:border-[#2BBFBA]"
                   [ngModel]="field.value"
                   (ngModelChange)="updateField(field.key, $event)"
                 />

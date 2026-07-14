@@ -48,7 +48,7 @@ import { NodeDefinition } from '../../../core/constants/node-definitions';
               <!-- Custom drag preview (follows cursor) -->
               <div
                 *cdkDragPreview
-                class="rounded-xl border border-[#FF8A5C] bg-[#FFF8F4] px-4 py-3 shadow-2xl"
+                class="rounded-xl border border-[#4DD4CE] bg-[#F5FBFA] px-4 py-3 shadow-2xl"
               >
                 <span class="mr-2">{{ node.icon }}</span>
                 <span class="font-medium text-[#1A1A1A]">{{ node.label }}</span>
@@ -57,7 +57,7 @@ import { NodeDefinition } from '../../../core/constants/node-definitions';
               <!-- Placeholder left in palette while dragging -->
               <div
                 *cdkDragPlaceholder
-                class="mb-1.5 rounded-lg border border-dashed border-[#FF8A5C]/60 bg-[#E5551A]/5 px-3 py-2.5 text-sm opacity-50"
+                class="mb-1.5 rounded-lg border border-dashed border-[#4DD4CE]/60 bg-[#1FA8A3]/5 px-3 py-2.5 text-sm opacity-50"
               >
                 {{ node.label }}
               </div>

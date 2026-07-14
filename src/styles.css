@@ -3,33 +3,33 @@
 @theme {
   --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
 
-  /* Focotech brand */
-  --color-brand-50: #fff5f0;
-  --color-brand-100: #ffe8dc;
-  --color-brand-200: #ffd0b8;
-  --color-brand-400: #ff8a5c;
-  --color-brand-500: #f06225;
-  --color-brand-600: #e5551a;
-  --color-brand-700: #c94512;
+  /* Cluster Valley — teal / cyan brand (matches logo) */
+  --color-brand-50: #f0fbfa;
+  --color-brand-100: #d5f2f0;
+  --color-brand-200: #9fe0dc;
+  --color-brand-400: #4dd4ce;
+  --color-brand-500: #2bbfba;
+  --color-brand-600: #1fa8a3;
+  --color-brand-700: #17807c;
 
-  --color-surface: #fcf9f6;
+  --color-surface: #f4faf9;
   --color-surface-elevated: #ffffff;
-  --color-surface-muted: #fff2eb;
-  --color-border: #efe8e1;
+  --color-surface-muted: #e6f7f6;
+  --color-border: #d9e5e3;
   --color-ink: #1a1a1a;
-  --color-muted: #757575;
+  --color-muted: #657574;
 }
 
 :root {
-  --app-bg: #fcf9f6;
+  --app-bg: #f4faf9;
   --app-card: #ffffff;
-  --app-soft: #fff2eb;
-  --app-accent: #f06225;
-  --app-accent-hover: #e5551a;
+  --app-soft: #e6f7f6;
+  --app-accent: #2bbfba;
+  --app-accent-hover: #1fa8a3;
   --app-ink: #1a1a1a;
-  --app-muted: #757575;
-  --app-border: #efe8e1;
-  --app-shadow: 0 4px 24px rgba(26, 26, 26, 0.06);
+  --app-muted: #657574;
+  --app-border: #d9e5e3;
+  --app-shadow: 0 4px 24px rgba(23, 128, 124, 0.08);
 }
 
 html,
@@ -65,8 +65,8 @@ app-root {
   box-sizing: border-box;
   border-radius: 1rem;
   box-shadow:
-    0 16px 40px rgba(240, 98, 37, 0.22),
-    0 0 0 1px rgba(240, 98, 37, 0.25);
+    0 16px 40px rgba(43, 191, 186, 0.22),
+    0 0 0 1px rgba(43, 191, 186, 0.25);
   cursor: grabbing !important;
 }
 
@@ -79,8 +79,8 @@ app-root {
 }
 
 .canvas-drop-zone.cdk-drop-list-dragging {
-  background: rgba(240, 98, 37, 0.04);
-  outline: 2px dashed rgba(240, 98, 37, 0.3);
+  background: rgba(43, 191, 186, 0.04);
+  outline: 2px dashed rgba(43, 191, 186, 0.35);
   outline-offset: -2px;
 }
 
@@ -103,26 +103,26 @@ app-root {
 
 .workflow-node:hover {
   z-index: 20;
-  box-shadow: 0 8px 28px rgba(240, 98, 37, 0.12);
+  box-shadow: 0 8px 28px rgba(43, 191, 186, 0.14);
 }
 
 .workflow-node.is-dragging {
   z-index: 100;
   cursor: grabbing !important;
   box-shadow:
-    0 16px 40px rgba(240, 98, 37, 0.25),
-    0 0 0 2px rgba(240, 98, 37, 0.45);
+    0 16px 40px rgba(43, 191, 186, 0.28),
+    0 0 0 2px rgba(43, 191, 186, 0.5);
   transition: none;
 }
 
 .port-active {
-  border-color: #ff8a5c !important;
-  background: #f06225 !important;
-  box-shadow: 0 0 0 4px rgba(240, 98, 37, 0.3);
+  border-color: #4dd4ce !important;
+  background: #2bbfba !important;
+  box-shadow: 0 0 0 4px rgba(43, 191, 186, 0.3);
 }
 
 .canvas-scroll {
-  scrollbar-color: #e5ddd4 transparent;
+  scrollbar-color: #cddbd9 transparent;
 }
 
 .canvas-scroll::-webkit-scrollbar {
@@ -131,6 +131,6 @@ app-root {
 }
 
 .canvas-scroll::-webkit-scrollbar-thumb {
-  background: #e5ddd4;
+  background: #cddbd9;
   border-radius: 999px;
 }

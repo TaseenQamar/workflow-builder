@@ -61,14 +61,14 @@ interface AddNodeMenuState {
   template: `
     <div
       #scrollContainer
-      class="canvas-scroll relative h-full w-full overflow-auto bg-[#FCF9F6]"
+      class="canvas-scroll relative h-full w-full overflow-auto bg-[#F4FAF9]"
       (click)="onCanvasClick($event)"
     >
       <div
         class="pointer-events-none absolute inset-0"
         [style.width.px]="canvasWidth"
         [style.height.px]="canvasHeight"
-        style="background-image: radial-gradient(circle, #E5DDD4 1.2px, transparent 1.2px); background-size: 20px 20px; opacity: 0.9;"
+        style="background-image: radial-gradient(circle, #CDDBD9 1.2px, transparent 1.2px); background-size: 20px 20px; opacity: 0.9;"
       ></div>
 
       <div
@@ -98,7 +98,7 @@ interface AddNodeMenuState {
               markerHeight="5"
               orient="auto"
             >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="#F06225" />
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#2BBFBA" />
             </marker>
           </defs>
 
@@ -115,7 +115,7 @@ interface AddNodeMenuState {
             <path
               [attr.d]="line.path"
               fill="none"
-              stroke="#FF8A5C"
+              stroke="#4DD4CE"
               stroke-width="1.75"
               stroke-dasharray="5 4"
               stroke-opacity="0.85"
@@ -126,11 +126,11 @@ interface AddNodeMenuState {
             <path
               [attr.d]="horizontalBezierPath(wire.x1, wire.y1, wire.x2, wire.y2)"
               fill="none"
-              stroke="#F06225"
+              stroke="#2BBFBA"
               stroke-width="2.5"
               stroke-dasharray="6 4"
             />
-            <circle [attr.cx]="wire.x2" [attr.cy]="wire.y2" r="5" fill="#F06225" />
+            <circle [attr.cx]="wire.x2" [attr.cy]="wire.y2" r="5" fill="#2BBFBA" />
           }
         </svg>
 
@@ -140,7 +140,7 @@ interface AddNodeMenuState {
             [attr.data-node-id]="node.id"
             [class]="nodeClasses(node)"
             [class.ring-2]="store.selectedNodeId() === node.id"
-            [class.ring-[#F06225]]="store.selectedNodeId() === node.id"
+            [class.ring-[#2BBFBA]]="store.selectedNodeId() === node.id"
             [class.is-dragging]="draggingNodeId() === node.id"
             [class.is-trigger]="isTrigger(node)"
             [style.left.px]="node.position.x"
@@ -168,7 +168,7 @@ interface AddNodeMenuState {
                 <div class="min-w-0 flex-1">
                   <p class="node-label truncate text-sm font-semibold" [class]="nodeTextColor(node.type)">{{ node.label }}</p>
                   @if (node.type === 'ai_agent') {
-                    <p class="mt-0.5 text-[10px] text-[#F06225]">Tools Agent</p>
+                    <p class="mt-0.5 text-[10px] text-[#2BBFBA]">Tools Agent</p>
                   } @else if (node.type === 'chat_trigger') {
                     <p class="mt-0.5 text-[10px] text-rose-300">Prompt → Run workflow</p>
                   } @else {
@@ -190,7 +190,7 @@ interface AddNodeMenuState {
                 data-port
                 data-port-in
                 [attr.data-port-id]="port.id"
-                class="port port-in absolute left-0 top-0 z-10 h-3 w-3 -translate-x-1/2 rounded-full border-2 border-[#C4B8AE] bg-white transition hover:scale-150 hover:border-[#FF8A5C] hover:bg-[#E5551A]/40"
+                class="port port-in absolute left-0 top-0 z-10 h-3 w-3 -translate-x-1/2 rounded-full border-2 border-[#C4B8AE] bg-white transition hover:scale-150 hover:border-[#4DD4CE] hover:bg-[#1FA8A3]/40"
                 [style.top.px]="portY(node, port)"
                 [class.ring-2]="hoverInputKey() === portKey(node.id, port.id)"
                 [class.ring-emerald-500]="hoverInputKey() === portKey(node.id, port.id)"
@@ -208,7 +208,7 @@ interface AddNodeMenuState {
                   data-port
                   data-port-config-out
                   [attr.data-port-id]="port.id"
-                  class="port absolute left-1/2 top-0 z-10 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#FF8A5C] bg-[#F06225] transition hover:scale-150"
+                  class="port absolute left-1/2 top-0 z-10 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#4DD4CE] bg-[#2BBFBA] transition hover:scale-150"
                   (pointerdown)="onConfigOutPointerDown($event, node)"
                 ></button>
               } @else {
@@ -224,8 +224,8 @@ interface AddNodeMenuState {
                   data-port
                   data-port-out
                   [attr.data-port-id]="port.id"
-                  class="port port-out h-3 w-3 rounded-full border-2 border-[#FF8A5C] bg-[#E5551A] transition hover:scale-150 hover:bg-[#FF8A5C]"
-                  [class.bg-[#FF8A5C]]="wireDrag()?.fromId === node.id && wireDrag()?.outputPort === port.id"
+                  class="port port-out h-3 w-3 rounded-full border-2 border-[#4DD4CE] bg-[#1FA8A3] transition hover:scale-150 hover:bg-[#4DD4CE]"
+                  [class.bg-[#4DD4CE]]="wireDrag()?.fromId === node.id && wireDrag()?.outputPort === port.id"
                   (pointerdown)="onOutputPortPointerDown($event, node, port.id)"
                   (click)="onOutputPortClick($event, node.id, port.id)"
                 ></button>
@@ -233,7 +233,7 @@ interface AddNodeMenuState {
                 <button
                   type="button"
                   data-add
-                  class="flex h-5 w-5 items-center justify-center rounded-full border border-[#E5DDD4] bg-[#FFF8F4] text-xs text-[#4A4A4A] shadow-sm hover:border-[#FF8A5C] hover:bg-[#E5551A]/20 hover:text-[#F06225]"
+                  class="flex h-5 w-5 items-center justify-center rounded-full border border-[#CDDBD9] bg-[#F5FBFA] text-xs text-[#4A4A4A] shadow-sm hover:border-[#4DD4CE] hover:bg-[#1FA8A3]/20 hover:text-[#2BBFBA]"
                   (pointerdown)="$event.stopPropagation()"
                   (click)="openAddMenu($event, node.id, port.id)"
                 >+</button>
@@ -253,9 +253,9 @@ interface AddNodeMenuState {
                   data-port
                   data-config-in
                   [attr.data-port-id]="port.id"
-                  class="h-3 w-3 rounded-full border-2 border-[#FF8A5C] bg-white transition hover:scale-150 hover:bg-[#FFF2EB]"
+                  class="h-3 w-3 rounded-full border-2 border-[#4DD4CE] bg-white transition hover:scale-150 hover:bg-[#E6F7F6]"
                   [class.ring-2]="hoverConfigPortKey() === portKey(node.id, port.id)"
-                  [class.ring-[#F06225]]="hoverConfigPortKey() === portKey(node.id, port.id)"
+                  [class.ring-[#2BBFBA]]="hoverConfigPortKey() === portKey(node.id, port.id)"
                   (pointerdown)="$event.stopPropagation()"
                   (pointerenter)="hoverConfigPortKey.set(portKey(node.id, port.id))"
                   (pointerleave)="hoverConfigPortKey.set(null)"
@@ -275,7 +275,7 @@ interface AddNodeMenuState {
           >
             <p class="text-sm font-semibold text-rose-300">💬 Chat Message</p>
             <textarea
-              class="mt-2 w-full resize-none rounded-lg border border-[#E5DDD4] bg-[#FFF8F4] px-3 py-2 text-sm text-[#1A1A1A] outline-none focus:border-rose-400"
+              class="mt-2 w-full resize-none rounded-lg border border-[#CDDBD9] bg-[#F5FBFA] px-3 py-2 text-sm text-[#1A1A1A] outline-none focus:border-rose-400"
               rows="3"
               [value]="store.chatInput()"
               (input)="onChatInput($event)"
@@ -294,7 +294,7 @@ interface AddNodeMenuState {
 
         @if (store.nodes().length === 0) {
           <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <div class="rounded-2xl border-2 border-dashed border-[#E5DDD4] bg-white/90 px-12 py-10 text-center shadow-sm">
+            <div class="rounded-2xl border-2 border-dashed border-[#CDDBD9] bg-white/90 px-12 py-10 text-center shadow-sm">
               <p class="text-4xl">⎔</p>
               <p class="mt-3 text-sm font-medium text-[#1A1A1A]">Drag nodes from the palette</p>
               <p class="mt-1 text-xs text-[#9A9A9A]">
@@ -306,14 +306,14 @@ interface AddNodeMenuState {
       </div>
 
       @if (wireDrag()) {
-        <div class="pointer-events-none absolute bottom-4 left-1/2 z-20 -translate-x-1/2 rounded-lg bg-[#F06225] px-4 py-2 text-sm text-white shadow-xl">
+        <div class="pointer-events-none absolute bottom-4 left-1/2 z-20 -translate-x-1/2 rounded-lg bg-[#2BBFBA] px-4 py-2 text-sm text-white shadow-xl">
           {{ wireDrag()!.mode === 'config' ? 'Drop on AI Agent bottom port (Chat Model / Memory / Tool)' : 'Drop on input port (left side) to connect' }}
         </div>
       }
 
       @if (addNodeMenu(); as menu) {
         <div
-          class="fixed z-50 w-52 rounded-xl border border-[#E5DDD4] bg-white py-1 shadow-2xl"
+          class="fixed z-50 w-52 rounded-xl border border-[#CDDBD9] bg-white py-1 shadow-2xl"
           [style.left.px]="menu.screenX"
           [style.top.px]="menu.screenY"
           (click)="$event.stopPropagation()"
@@ -324,7 +324,7 @@ interface AddNodeMenuState {
           @for (item of quickAddNodes; track item.label) {
             <button
               type="button"
-              class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[#1A1A1A] hover:bg-[#E5551A]/10"
+              class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[#1A1A1A] hover:bg-[#1FA8A3]/10"
               (click)="pickQuickNode(item)"
             >
               <span>{{ item.icon }}</span>
@@ -414,7 +414,7 @@ export class WorkflowCanvasComponent {
         const path = horizontalBezierPath(fromPos.x, fromPos.y, toPos.x, toPos.y);
         const output = conn.output ?? 'main';
         const color =
-          output === 'true' ? '#22c55e' : output === 'false' ? '#f97316' : '#F06225';
+          output === 'true' ? '#22c55e' : output === 'false' ? '#2bbfba' : '#2BBFBA';
 
         return { key: `${conn.from}-${output}-${conn.to}`, path, color };
       })

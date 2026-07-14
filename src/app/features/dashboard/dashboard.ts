@@ -1,7 +1,8 @@
 import { JsonPipe } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, effect, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
+import { BackendStatusService } from '../../core/services/backend-status.service';
 import { WorkflowRecord } from '../../core/models/workflow.models';
 
 interface StatCard {
@@ -18,6 +19,7 @@ interface StatCard {
 })
 export class Dashboard implements OnInit {
   private readonly api = inject(ApiService);
+  private readonly backendStatus = inject(BackendStatusService);
 
   protected readonly stats = signal<StatCard[]>([
     { label: 'Active Workflows', value: '—', change: 'Loading...', trend: 'neutral' },
@@ -30,11 +32,29 @@ export class Dashboard implements OnInit {
   protected readonly runningId = signal<string | null>(null);
   protected readonly lastResult = signal<Record<string, unknown> | null>(null);
   protected readonly runError = signal<string | null>(null);
-  protected readonly backendOnline = signal(false);
+  protected readonly backendOnline = this.backendStatus.online;
+  protected readonly backendHint = this.backendStatus.lastError;
   protected readonly n8nOnline = signal(false);
 
+  constructor() {
+    // After sleep/wake, BackendStatusService flips online → reload dashboard data
+    effect(() => {
+      const ok = this.backendStatus.online();
+      if (ok) {
+        this.loadWhenOnline();
+      } else {
+        this.stats.set([
+          { label: 'Active Workflows', value: '—', change: 'Backend offline', trend: 'down' },
+          { label: 'Executions Today', value: '—', change: 'Wake Mac + npm run wake', trend: 'neutral' },
+          { label: 'Success Rate', value: '—', change: '—', trend: 'neutral' },
+          { label: 'Backend Status', value: 'Offline', change: 'Check Settings API URL', trend: 'down' },
+        ]);
+      }
+    });
+  }
+
   ngOnInit(): void {
-    this.loadData();
+    this.backendStatus.refresh();
   }
 
   protected runWorkflow(wf: WorkflowRecord): void {
@@ -56,11 +76,12 @@ export class Dashboard implements OnInit {
       next: (result) => {
         this.lastResult.set(result);
         this.runningId.set(null);
-        this.loadData();
+        this.loadWhenOnline();
       },
       error: (err) => {
         this.runError.set(err?.error?.message ?? 'Run failed — is backend running?');
         this.runningId.set(null);
+        this.backendStatus.refresh();
       },
     });
   }
@@ -69,30 +90,22 @@ export class Dashboard implements OnInit {
     return this.runningId() === id;
   }
 
-  private loadData(): void {
-    this.api.checkBackendHealth().subscribe((ok) => {
-      this.backendOnline.set(ok);
-      if (!ok) {
+  protected retryConnection(): void {
+    this.backendStatus.refresh();
+  }
+
+  private loadWhenOnline(): void {
+    this.api.getN8nHealth().subscribe((n8n) => this.n8nOnline.set(n8n.connected));
+
+    this.api.getWorkflows().subscribe((wfs) => {
+      this.workflows.set(wfs);
+
+      this.api.getExecutionStats().subscribe((stats) => {
+        if (!stats) return;
         this.stats.set([
-          { label: 'Active Workflows', value: '—', change: 'Backend offline', trend: 'down' },
-          { label: 'Executions Today', value: '—', change: 'Start backend :3000', trend: 'neutral' },
-          { label: 'Success Rate', value: '—', change: '—', trend: 'neutral' },
-          { label: 'Backend Status', value: 'Offline', change: 'npm run start:dev', trend: 'down' },
-        ]);
-        return;
-      }
-
-      this.api.getN8nHealth().subscribe((n8n) => this.n8nOnline.set(n8n.connected));
-
-      this.api.getWorkflows().subscribe((wfs) => {
-        this.workflows.set(wfs);
-
-        this.api.getExecutionStats().subscribe((stats) => {
-          if (!stats) return;
-          this.stats.set([
-            {
-              label: 'Active Workflows',
-              value: String(wfs.length),
+          {
+            label: 'Active Workflows',
+            value: String(wfs.length),
             change: `${wfs.filter((w) => w.active).length} active`,
             trend: 'up',
           },
@@ -110,12 +123,11 @@ export class Dashboard implements OnInit {
           },
           {
             label: 'Backend + n8n',
-            value: ok ? 'Online' : 'Offline',
+            value: 'Online',
             change: stats.n8nConnected ? 'n8n connected' : 'n8n offline',
-            trend: ok && stats.n8nConnected ? 'up' : 'neutral',
-    },
-  ]);
-        });
+            trend: stats.n8nConnected ? 'up' : 'neutral',
+          },
+        ]);
       });
     });
   }

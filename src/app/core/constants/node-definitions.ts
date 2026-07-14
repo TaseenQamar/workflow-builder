@@ -319,21 +319,21 @@ export function nodeColor(type: NodeType): string {
     webhook: 'border-amber-300 bg-amber-50',
     chat_trigger: 'border-rose-300 bg-rose-50',
     schedule: 'border-amber-300 bg-amber-50',
-    http: 'border-[#E5DDD4] bg-white',
-    email: 'border-[#E5DDD4] bg-white',
+    http: 'border-[#CDDBD9] bg-white',
+    email: 'border-[#CDDBD9] bg-white',
     slack: 'border-pink-300 bg-pink-50',
-    ai: 'border-[#FFD0B8] bg-[#FFF8F4]',
-    ai_agent: 'border-[#F06225]/40 bg-[#FFF2EB]',
+    ai: 'border-[#9FE0DC] bg-[#F5FBFA]',
+    ai_agent: 'border-[#2BBFBA]/40 bg-[#E6F7F6]',
     chat_model: 'border-sky-300 bg-sky-50',
-    memory: 'border-orange-300 bg-orange-50',
+    memory: 'border-[#9FE0DC] bg-[#E6F7F6]',
     tool: 'border-teal-300 bg-teal-50',
     condition: 'border-cyan-300 bg-cyan-50',
     delay: 'border-cyan-300 bg-cyan-50',
     code: 'border-cyan-300 bg-cyan-50',
-    n8n: 'border-[#FFD0B8] bg-[#FFF2EB]',
+    n8n: 'border-[#9FE0DC] bg-[#E6F7F6]',
     spreadsheet: 'border-emerald-300 bg-emerald-50',
   };
-  return map[type] ?? 'border-[#E5DDD4] bg-white';
+  return map[type] ?? 'border-[#CDDBD9] bg-white';
 }
 
 /** Text classes for node labels — always readable on node backgrounds */
@@ -350,19 +350,19 @@ export function nodeIconBg(type: NodeType): string {
     webhook: 'bg-amber-100',
     chat_trigger: 'bg-rose-100',
     schedule: 'bg-amber-100',
-    ai: 'bg-[#FFE8DC]',
-    ai_agent: 'bg-[#FFE8DC]',
+    ai: 'bg-[#D5F2F0]',
+    ai_agent: 'bg-[#D5F2F0]',
     chat_model: 'bg-sky-100',
-    memory: 'bg-orange-100',
+    memory: 'bg-[#D5F2F0]',
     tool: 'bg-teal-100',
     condition: 'bg-cyan-100',
     delay: 'bg-cyan-100',
     code: 'bg-cyan-100',
     slack: 'bg-pink-100',
     spreadsheet: 'bg-emerald-100',
-    n8n: 'bg-[#FFF2EB]',
+    n8n: 'bg-[#E6F7F6]',
   };
-  return map[type] ?? 'bg-[#FFF2EB]';
+  return map[type] ?? 'bg-[#E6F7F6]';
 }
 
 export function createNodeFromDefinition(

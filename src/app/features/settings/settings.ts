@@ -1,6 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
+import { BackendStatusService } from '../../core/services/backend-status.service';
 import { AiIntegrationStatus } from '../../core/models/workflow.models';
 import { storeAiProvider } from '../../core/constants/node-definitions';
 
@@ -11,8 +12,11 @@ import { storeAiProvider } from '../../core/constants/node-definitions';
 })
 export class Settings implements OnInit {
   protected readonly api = inject(ApiService);
+  private readonly backendStatus = inject(BackendStatusService);
 
-  protected readonly backendOnline = signal(false);
+  protected readonly backendOnline = this.backendStatus.online;
+  protected readonly backendHint = this.backendStatus.lastError;
+  protected readonly checkingBackend = this.backendStatus.checking;
   protected readonly n8nHealth = signal({ connected: false, api: false, webhook: false });
   protected readonly aiStatus = signal<AiIntegrationStatus>({
     openai: { configured: false, source: 'none' },
@@ -50,7 +54,7 @@ export class Settings implements OnInit {
   }
 
   protected refreshStatus(): void {
-    this.api.checkBackendHealth().subscribe((ok) => this.backendOnline.set(ok));
+    this.backendStatus.refresh();
     this.api.getN8nHealth().subscribe((h) => this.n8nHealth.set(h));
     this.api.getAiIntegrationStatus().subscribe((s) => {
       this.aiStatus.set(s);
