@@ -61,7 +61,7 @@ export class WorkflowChatService {
           const persisted = result['persisted'] === true;
           this.store.message.set(
             demo
-              ? 'Demo mode — Settings mein OpenAI/Gemini API key save karein'
+              ? 'Demo mode — save an OpenAI/Gemini API key in Settings'
               : persisted
                 ? 'Workflow completed · saved to PostgreSQL'
                 : 'Workflow completed',
@@ -71,7 +71,7 @@ export class WorkflowChatService {
           this.store.running.set(false);
           const errText =
             err?.error?.message ??
-            'Chat failed — backend :3000 par chal raha hai? API key Settings mein hai?';
+            'Chat failed — is the backend running? Is an API key set in Settings?';
           this.store.addChatMessage('error', errText);
           this.store.error.set(errText);
         },

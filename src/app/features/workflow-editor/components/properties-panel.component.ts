@@ -38,8 +38,8 @@ import { ExecutionMode } from '../../../core/models/workflow.models';
             Nodes: {{ store.nodes().length }} · Connections: {{ store.connections().length }}
           </p>
           <p class="rounded-lg border border-[#FFE8DC] bg-[#E5551A]/5 p-3 text-xs text-[#757575]">
-            Nodes ko <strong class="text-[#F06225]">wires se jorain</strong> — order wahi chalega:
-            Chat → HTTP → AI Agent. Neeche prompt likh kar <strong class="text-[#F06225]">Chat</strong> dabayein.
+            Connect nodes with <strong class="text-[#F06225]">wires</strong> — they run in that order:
+            Chat → HTTP → AI Agent. Type a prompt below and click <strong class="text-[#F06225]">Chat</strong>.
             <a routerLink="/settings" class="mt-2 block text-[#F06225] hover:underline">API key →</a>
           </p>
         </div>
@@ -62,7 +62,7 @@ import { ExecutionMode } from '../../../core/models/workflow.models';
             <div class="rounded-xl border-2 border-rose-500/40 bg-rose-500/10 p-4">
               <p class="text-sm font-semibold text-rose-300">💬 Chat Input (n8n style)</p>
               <p class="mt-1 text-[11px] text-[#757575]">
-                Yahan prompt likhein → Run → connected workflow chalega
+                Enter a prompt → Run → the connected workflow executes
               </p>
 
               <label class="mt-3 block text-xs font-medium text-[#4A4A4A]">Your message / prompt</label>
@@ -71,7 +71,7 @@ import { ExecutionMode } from '../../../core/models/workflow.models';
                 rows="4"
                 [ngModel]="store.chatInput()"
                 (ngModelChange)="store.chatInput.set($event)"
-                placeholder="e.g. Mujhe refund chahiye order #123 ke liye"
+                placeholder="e.g. I need a refund for order #123"
               ></textarea>
 
               <button
@@ -104,7 +104,7 @@ import { ExecutionMode } from '../../../core/models/workflow.models';
 
               @if (!hasAgentConnected()) {
                 <p class="mt-2 text-[11px] text-amber-600">
-                  AI Agent connect karein (Chat → Agent wire) ya template load karein
+                  Connect an AI Agent (Chat → Agent wire) or load the template
                 </p>
               }
             </div>

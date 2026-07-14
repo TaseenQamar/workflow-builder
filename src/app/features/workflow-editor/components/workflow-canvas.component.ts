@@ -279,7 +279,7 @@ interface AddNodeMenuState {
               rows="3"
               [value]="store.chatInput()"
               (input)="onChatInput($event)"
-              placeholder="Apna prompt likhein..."
+              placeholder="Type your prompt..."
             ></textarea>
             <button
               type="button"

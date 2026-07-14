@@ -230,7 +230,7 @@ export class ApiService {
         gemini: { configured: false, source: 'none' },
         defaultProvider: 'openai' as const,
         demoMode: true,
-        message: 'Backend API URL set nahi — Settings mein Render URL dalein',
+        message: 'Backend API URL not set — add your API URL in Settings',
       });
     }
     return this.http.get<AiIntegrationStatus>(`${this.base}/integrations/status/ai`).pipe(

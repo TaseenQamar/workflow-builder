@@ -39,7 +39,7 @@ export class Settings implements OnInit {
   protected saveBackendUrl(): void {
     const url = this.backendUrl.trim();
     if (!url) {
-      this.saveError.set('Backend URL dalein — e.g. https://your-api.onrender.com');
+      this.saveError.set('Enter a backend URL — e.g. https://your-api.onrender.com');
       return;
     }
     this.api.setApiBase(url);
@@ -72,7 +72,7 @@ export class Settings implements OnInit {
         this.savingProvider = false;
         storeAiProvider(provider);
         const label = provider === 'gemini' ? 'Google Gemini' : 'OpenAI';
-        this.saveMessage.set(`${label} select ho gaya — ab chat/search isi se chalega`);
+        this.saveMessage.set(`${label} selected — chat/search will use this provider`);
         this.refreshStatus();
       },
       error: () => {
@@ -81,8 +81,8 @@ export class Settings implements OnInit {
         this.aiStatus.update((s) => ({ ...s, defaultProvider: provider }));
         this.saveMessage.set(
           provider === 'gemini'
-            ? 'Gemini selected (local). Backend online hone par sync ho jayega'
-            : 'OpenAI selected (local). Backend online hone par sync ho jayega',
+            ? 'Gemini selected (local). Will sync when the backend is online'
+            : 'OpenAI selected (local). Will sync when the backend is online',
         );
       },
     });
@@ -98,14 +98,14 @@ export class Settings implements OnInit {
         this.savingOpenai = false;
         this.openaiKey = '';
         const storage = (res as { storage?: string })?.storage ?? 'saved';
-        this.saveMessage.set(`OpenAI key saved (${storage}). Upar green badge dekhein.`);
+        this.saveMessage.set(`OpenAI key saved (${storage}). Check the green badge above.`);
         this.refreshStatus();
       },
       error: (err) => {
         this.savingOpenai = false;
         this.saveError.set(
           err?.error?.message ??
-            'Save failed — backend http://localhost:3000 chal raha hai? ng serve proxy ke sath?',
+            'Save failed — is the backend running on http://localhost:3000?',
         );
       },
     });
@@ -121,7 +121,7 @@ export class Settings implements OnInit {
         this.savingGemini = false;
         this.geminiKey = '';
         const storage = (res as { storage?: string })?.storage ?? 'saved';
-        this.saveMessage.set(`Gemini key saved (${storage}). Upar green badge dekhein.`);
+        this.saveMessage.set(`Gemini key saved (${storage}). Check the green badge above.`);
         this.refreshStatus();
       },
       error: (err) => {

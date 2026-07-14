@@ -20,8 +20,8 @@ export interface ChatMessage {
         <div class="flex items-center gap-2">
           <span class="text-base">💬</span>
           <div>
-            <p class="text-sm font-medium text-[#1A1A1A]">Chat Trigger — Prompt yahan likhein</p>
-            <p class="text-[11px] text-[#9A9A9A]">n8n jaisa: message → workflow chalega → jawab neeche</p>
+            <p class="text-sm font-medium text-[#1A1A1A]">Chat Trigger — Type your prompt here</p>
+            <p class="text-[11px] text-[#9A9A9A]">Like n8n: message → run workflow → reply below</p>
           </div>
         </div>
         @if (running()) {
@@ -32,7 +32,7 @@ export interface ChatMessage {
       <div class="max-h-48 min-h-[4rem] overflow-y-auto px-4 py-3">
         @if (messages().length === 0 && !running()) {
           <p class="text-center text-xs text-[#9A9A9A]">
-            Pehla message likhein aur Chat dabayein — AI Agent se jawab yahan aayega
+            Type your first message and click Chat — the AI Agent reply will appear here
           </p>
         } @else {
           <div class="space-y-3">
@@ -52,7 +52,7 @@ export interface ChatMessage {
               </div>
             }
             @if (running()) {
-              <p class="text-xs text-[#9A9A9A] animate-pulse">Workflow execute ho raha hai...</p>
+              <p class="text-xs text-[#9A9A9A] animate-pulse">Running workflow...</p>
             }
           </div>
         }
@@ -66,7 +66,7 @@ export interface ChatMessage {
           (ngModelChange)="inputTextChange.emit($event)"
           (keydown.enter)="$event.preventDefault(); send.emit()"
           [disabled]="running()"
-          placeholder="Apna prompt / message likhein..."
+          placeholder="Type your prompt / message..."
         ></textarea>
         <button
           type="button"

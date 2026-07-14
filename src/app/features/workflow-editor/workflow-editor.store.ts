@@ -234,7 +234,7 @@ export class WorkflowEditorStore {
     const flowNodes = nodes.filter((n) => !isConfigNodeType(n.type));
     if (flowNodes.length > 1 && flowConns.length === 0) {
       errors.push(
-        'Nodes wire nahi hain — Chat se HTTP / AI Agent par connection drag karein (left → right)',
+        'Connect your nodes — drag wires from Chat to HTTP / AI Agent (left → right)',
       );
     }
 

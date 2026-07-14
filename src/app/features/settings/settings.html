@@ -19,7 +19,7 @@
     <section class="mb-10">
       <h2 class="text-lg font-medium text-[#1A1A1A]">Backend API URL (Production)</h2>
       <p class="mt-1 text-sm text-[#757575]">
-        Render / live backend URL yahan dalein. Example:
+        Enter your live backend URL here. Example:
         <code class="text-[#4A4A4A]">https://workflow-builder-api.onrender.com</code>
       </p>
       <div class="mt-3 flex max-w-2xl flex-col gap-2 sm:flex-row">
@@ -50,7 +50,7 @@
     <section class="mb-10">
       <h2 class="text-lg font-medium text-[#1A1A1A]">Default AI Provider</h2>
       <p class="mt-1 text-sm text-[#757575]">
-        Jo select karenge chat / search <strong class="text-[#4A4A4A]">usi se</strong> chalega
+        Whichever you select will be used for chat / search
       </p>
       <p class="mt-1 text-xs text-[#F06225]/90">{{ aiStatus().message }}</p>
 
@@ -111,10 +111,10 @@
 
     <section class="mb-10">
       <h2 class="text-lg font-medium text-[#1A1A1A]">API Keys</h2>
-      <p class="mt-1 text-sm text-[#757575]">Dono keys save kar sakte hain — upar se active provider choose karein</p>
+      <p class="mt-1 text-sm text-[#757575]">You can save both keys — choose the active provider above</p>
       <p class="mt-1 text-xs text-amber-600/90">
-        Note: Save ke baad input khali dikhega (security). Key remove nahi hoti — uper
-        <strong>green badge</strong> (sk-••••) check karein.
+        Note: After save, the input clears for security. The key is not removed — check the
+        <strong>green badge</strong> (sk-••••) above.
       </p>
 
       <div class="mt-4 grid gap-4 lg:grid-cols-2">
@@ -130,12 +130,12 @@
             }
           </div>
           @if (aiStatus().openai.configured) {
-            <p class="mt-2 text-xs text-emerald-600/80">Key saved hai — Chat workflow use kar sakte hain.</p>
+            <p class="mt-2 text-xs text-emerald-600/80">Key saved — you can use Chat workflows.</p>
           }
           <input
             type="password"
             class="mt-3 w-full rounded-lg border border-[#E5DDD4] bg-[#FFF8F4] px-3 py-2 text-sm text-[#1A1A1A] outline-none focus:border-[#F06225]"
-            placeholder="Nayi key dalne ke liye sk-... likhein"
+            placeholder="Paste a new key starting with sk-..."
             [(ngModel)]="openaiKey"
           />
           <button
@@ -177,8 +177,8 @@
       </div>
 
       <p class="mt-3 text-xs text-[#9A9A9A]">
-        Ya backend <code class="text-[#757575]">workflow-build-backend/.env</code>:
-        OPENAI_API_KEY=sk-... ya GEMINI_API_KEY=AIza...
+        Or set in backend <code class="text-[#757575]">workflow-build-backend/.env</code>:
+        OPENAI_API_KEY=sk-... or GEMINI_API_KEY=AIza...
       </p>
     </section>
 
@@ -199,7 +199,7 @@
           </div>
           @if (!backendOnline()) {
             <p class="mt-2 text-xs text-red-600/80">
-              Backend band hai — API key save nahi hogi. Terminal: cd workflow-build-backend && npm run start:dev
+              Backend is offline — API keys cannot be saved. Run: cd workflow-build-backend && npm run start:dev
             </p>
           }
         </div>
@@ -216,8 +216,8 @@
             }
           </div>
           <p class="mt-2 text-xs text-[#9A9A9A]">
-            Chat + AI Agent ke liye n8n <strong class="text-[#757575]">zaroori nahi</strong> (LOCAL engine).
-            Sirf HYBRID/N8N mode chahiye ho to:
+            n8n is <strong class="text-[#757575]">optional</strong> for Chat + AI Agent (LOCAL engine).
+            Only needed for HYBRID/N8N mode:
             <code class="text-[#757575]">cd workflow-builder && npm run n8n</code>
           </p>
         </div>
@@ -228,9 +228,9 @@
       <h2 class="text-lg font-medium text-[#1A1A1A]">Chat — Quick Start</h2>
       <div class="mt-4 max-w-2xl rounded-xl border border-[#EFE8E1] bg-white p-5 text-sm text-[#4A4A4A]">
         <ol class="list-decimal space-y-2 pl-5 text-[#757575]">
-          <li><strong class="text-[#1A1A1A]">OpenAI</strong> ya <strong class="text-[#1A1A1A]">Gemini</strong> select karein</li>
-          <li>Usi provider ki API key save karein</li>
-          <li>Workflow Editor → message likhein → <strong class="text-[#1A1A1A]">Chat</strong></li>
+          <li>Select <strong class="text-[#1A1A1A]">OpenAI</strong> or <strong class="text-[#1A1A1A]">Gemini</strong></li>
+          <li>Save that provider's API key</li>
+          <li>Open Workflow Editor → type a message → click <strong class="text-[#1A1A1A]">Chat</strong></li>
         </ol>
       </div>
     </section>
