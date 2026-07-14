@@ -20,6 +20,13 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'workflow-editor/:id',
+        loadComponent: () =>
+          import('./features/workflow-editor/workflow-editor').then(
+            (m) => m.WorkflowEditor,
+          ),
+      },
+      {
         path: 'node-library',
         loadComponent: () =>
           import('./features/node-library/node-library').then(

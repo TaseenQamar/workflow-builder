@@ -1,22 +1,26 @@
 <div class="flex h-full flex-col overflow-hidden">
-  <header class="border-b border-slate-800 px-8 py-6">
-    <h1 class="text-2xl font-semibold text-white">Dashboard</h1>
-    <p class="mt-1 text-sm text-slate-400">
-      Monitor workflows, executions, and automation health at a glance.
+  <header class="border-b border-[#EFE8E1] bg-white/70 px-8 py-6 backdrop-blur">
+    <h1 class="text-2xl font-bold text-[#1A1A1A]">Dashboard</h1>
+    <p class="mt-1 text-sm text-[#757575]">
+      @if (backendOnline()) {
+        Live data from NestJS backend + n8n
+      } @else {
+        Backend offline — start <code class="text-[#F06225]">workflow-build-backend</code> on port 3000
+      }
     </p>
   </header>
 
   <div class="flex-1 overflow-y-auto p-8">
     <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       @for (stat of stats(); track stat.label) {
-        <div class="rounded-xl border border-slate-800 bg-slate-900 p-5">
-          <p class="text-sm text-slate-400">{{ stat.label }}</p>
-          <p class="mt-2 text-3xl font-semibold text-white">{{ stat.value }}</p>
+        <div class="rounded-3xl border border-[#EFE8E1] bg-white p-5 shadow-[0_4px_24px_rgba(26,26,26,0.05)]">
+          <p class="text-sm text-[#757575]">{{ stat.label }}</p>
+          <p class="mt-2 text-3xl font-bold text-[#1A1A1A]">{{ stat.value }}</p>
           <p
             class="mt-1 text-xs"
-            [class.text-emerald-400]="stat.trend === 'up'"
-            [class.text-red-400]="stat.trend === 'down'"
-            [class.text-slate-500]="stat.trend === 'neutral'"
+            [class.text-emerald-600]="stat.trend === 'up'"
+            [class.text-red-500]="stat.trend === 'down'"
+            [class.text-[#9A9A9A]]="stat.trend === 'neutral'"
           >
             {{ stat.change }}
           </p>
@@ -25,53 +29,74 @@
     </div>
 
     @if (runError()) {
-      <div class="mt-6 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+      <div class="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
         {{ runError() }}
       </div>
     }
 
     @if (lastResult()) {
-      <div class="mt-6 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
-        <p class="text-sm font-medium text-emerald-300">Last workflow result</p>
-        <pre class="mt-2 overflow-x-auto text-xs text-slate-300">{{ lastResult() | json }}</pre>
+      <div class="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+        <p class="text-sm font-medium text-emerald-700">Last run result</p>
+        <pre class="mt-2 overflow-x-auto text-xs text-[#757575]">{{ lastResult() | json }}</pre>
       </div>
     }
 
     <section class="mt-10">
-      <h2 class="text-lg font-medium text-white">Automation Use Cases (n8n)</h2>
-      <p class="mt-1 text-sm text-slate-400">
-        Pre-built workflows powered by n8n. Click "Run" to trigger via webhook.
-      </p>
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-bold text-[#1A1A1A]">Workflows</h2>
+          <p class="mt-1 text-sm text-[#757575]">Saved workflows from backend API</p>
+        </div>
+        <a
+          routerLink="/workflow-editor"
+          class="rounded-full bg-[#F06225] px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#E5551A]"
+        >
+          + New Workflow
+        </a>
+      </div>
 
-      <div class="mt-6 grid gap-6 lg:grid-cols-3">
-        @for (useCase of useCases(); track useCase.title) {
-          <article
-            class="rounded-xl border p-5"
-            [class]="useCase.color"
-          >
+      <div class="mt-6 grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+        @for (wf of workflows(); track wf.id) {
+          <article class="rounded-3xl border border-[#EFE8E1] bg-white p-5 shadow-[0_4px_24px_rgba(26,26,26,0.05)]">
             <div class="flex items-start justify-between gap-3">
-              <h3 class="font-medium text-white">{{ useCase.title }}</h3>
+              <div>
+                <h3 class="font-semibold text-[#1A1A1A]">{{ wf.name }}</h3>
+                <p class="mt-1 text-xs text-[#9A9A9A]">{{ wf.executionMode }} · v{{ wf.version ?? 1 }}</p>
+              </div>
+              <span
+                class="rounded-full px-2.5 py-1 text-xs font-medium"
+                [class.bg-[#FFF2EB]]="wf.active"
+                [class.text-[#F06225]]="wf.active"
+                [class.bg-[#F5F0EB]]="!wf.active"
+                [class.text-[#757575]]="!wf.active"
+              >
+                {{ wf.active ? 'Active' : 'Draft' }}
+              </span>
+            </div>
+            @if (wf.description) {
+              <p class="mt-2 text-sm text-[#757575]">{{ wf.description }}</p>
+            }
+            <div class="mt-4 flex gap-2">
+              <a
+                [routerLink]="['/workflow-editor', wf.id]"
+                class="rounded-full border border-[#EFE8E1] px-4 py-1.5 text-xs font-medium text-[#757575] hover:bg-[#FFF5F0] hover:text-[#1A1A1A]"
+              >
+                Edit
+              </a>
               <button
                 type="button"
-                class="shrink-0 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-indigo-500 disabled:opacity-50"
-                [disabled]="isRunning(useCase.id)"
-                (click)="runWorkflow(useCase)"
+                class="rounded-full bg-[#F06225] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#E5551A] disabled:opacity-50"
+                [disabled]="isRunning(wf.id)"
+                (click)="runWorkflow(wf)"
               >
-                {{ isRunning(useCase.id) ? 'Running...' : 'Run' }}
+                {{ isRunning(wf.id) ? 'Running...' : 'Run' }}
               </button>
             </div>
-            <div class="mt-4 space-y-2">
-              <div class="rounded-lg bg-slate-900/60 px-3 py-2 text-sm text-slate-200">
-                {{ useCase.trigger }}
-              </div>
-              @for (step of useCase.steps; track step) {
-                <div class="flex items-center gap-2 text-sm text-slate-300">
-                  <span class="text-slate-500">↓</span>
-                  <span class="rounded-lg bg-slate-900/60 px-3 py-2">{{ step }}</span>
-                </div>
-              }
-            </div>
           </article>
+        } @empty {
+          <p class="col-span-full text-sm text-[#9A9A9A]">
+            No workflows yet. Create one in the Workflow Editor or run backend seed.
+          </p>
         }
       </div>
     </section>

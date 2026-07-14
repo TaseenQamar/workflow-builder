@@ -1,11 +1,12 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
-import { N8nService } from '../../core/services/n8n.service';
-import { N8nExecution } from '../../core/models/n8n.models';
+import { ApiService } from '../../core/services/api.service';
+import { ExecutionRecord } from '../../core/models/workflow.models';
 
 interface ExecutionRow {
   id: string;
   workflow: string;
   status: 'success' | 'failed' | 'running';
+  engine: string;
   startedAt: string;
   duration: string;
 }
@@ -14,14 +15,13 @@ interface ExecutionRow {
   selector: 'app-executions',
   imports: [],
   templateUrl: './executions.html',
-  styleUrl: './executions.scss',
 })
 export class Executions implements OnInit {
-  private readonly n8n = inject(N8nService);
+  private readonly api = inject(ApiService);
 
   protected readonly executions = signal<ExecutionRow[]>([]);
   protected readonly loading = signal(true);
-  protected readonly n8nConnected = signal(false);
+  protected readonly backendOnline = signal(false);
 
   ngOnInit(): void {
     this.loadExecutions();
@@ -33,9 +33,9 @@ export class Executions implements OnInit {
 
   protected statusClass(status: ExecutionRow['status']): string {
     const classes: Record<ExecutionRow['status'], string> = {
-      success: 'bg-emerald-500/20 text-emerald-300',
-      failed: 'bg-red-500/20 text-red-300',
-      running: 'bg-amber-500/20 text-amber-300',
+      success: 'bg-emerald-50 text-emerald-700',
+      failed: 'bg-red-50 text-red-600',
+      running: 'bg-[#FFF2EB] text-[#F06225]',
     };
     return classes[status];
   }
@@ -43,31 +43,35 @@ export class Executions implements OnInit {
   private loadExecutions(): void {
     this.loading.set(true);
 
-    this.n8n.checkConnection().subscribe((connected) => {
-      this.n8nConnected.set(connected);
+    this.api.checkBackendHealth().subscribe((connected) => {
+      this.backendOnline.set(connected);
 
       if (!connected) {
-        this.executions.set(this.demoExecutions());
+        this.executions.set([]);
         this.loading.set(false);
         return;
       }
 
-      this.n8n.getExecutions(25).subscribe((data) => {
+      this.api.getExecutions().subscribe((data) => {
         this.executions.set(data.map((e) => this.toRow(e)));
         this.loading.set(false);
       });
     });
   }
 
-  private toRow(e: N8nExecution): ExecutionRow {
+  private toRow(e: ExecutionRecord): ExecutionRow {
     const start = new Date(e.startedAt);
-    const end = e.stoppedAt ? new Date(e.stoppedAt) : null;
-    const durationMs = end ? end.getTime() - start.getTime() : null;
+    const durationMs = e.durationMs ?? null;
+
+    let status: ExecutionRow['status'] = 'running';
+    if (e.status === 'SUCCESS') status = 'success';
+    else if (e.status === 'FAILED') status = 'failed';
 
     return {
       id: e.id,
-      workflow: e.workflowName || `Workflow ${e.workflowId}`,
-      status: e.status === 'error' ? 'failed' : e.status === 'success' ? 'success' : 'running',
+      workflow: e.workflow?.name ?? e.workflowId,
+      status,
+      engine: e.engine ?? 'LOCAL',
       startedAt: this.timeAgo(start),
       duration: durationMs !== null ? `${(durationMs / 1000).toFixed(1)}s` : '—',
     };
@@ -78,31 +82,5 @@ export class Executions implements OnInit {
     if (seconds < 60) return `${seconds}s ago`;
     if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
     return `${Math.floor(seconds / 3600)}h ago`;
-  }
-
-  private demoExecutions(): ExecutionRow[] {
-    return [
-      {
-        id: 'demo-1',
-        workflow: 'Customer Support - Ticket Router',
-        status: 'success',
-        startedAt: '2 min ago',
-        duration: '1.8s',
-      },
-      {
-        id: 'demo-2',
-        workflow: 'E-commerce - Order Pipeline',
-        status: 'success',
-        startedAt: '12 min ago',
-        duration: '3.2s',
-      },
-      {
-        id: 'demo-3',
-        workflow: 'AI Content - Blog Pipeline',
-        status: 'failed',
-        startedAt: '28 min ago',
-        duration: '0.9s',
-      },
-    ];
   }
 }

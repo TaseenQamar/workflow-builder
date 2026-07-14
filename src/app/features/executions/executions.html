@@ -1,18 +1,18 @@
 <div class="flex h-full flex-col overflow-hidden">
-  <header class="flex items-center justify-between border-b border-slate-800 px-8 py-6">
+  <header class="flex items-center justify-between border-b border-[#EFE8E1] bg-white/70 px-8 py-6 backdrop-blur">
     <div>
-      <h1 class="text-2xl font-semibold text-white">Executions</h1>
-      <p class="mt-1 text-sm text-slate-400">
-        @if (n8nConnected()) {
-          Live execution history from n8n.
+      <h1 class="text-2xl font-bold text-[#1A1A1A]">Executions</h1>
+      <p class="mt-1 text-sm text-[#757575]">
+        @if (backendOnline()) {
+          Live execution history from NestJS backend
         } @else {
-          n8n offline — showing demo data. Start with <code class="text-indigo-400">npm run n8n</code>.
+          Backend offline — start workflow-build-backend on port 3000
         }
       </p>
     </div>
     <button
       type="button"
-      class="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:bg-slate-800"
+      class="rounded-full border border-[#EFE8E1] bg-white px-4 py-2 text-sm font-medium text-[#757575] transition hover:bg-[#FFF5F0] hover:text-[#1A1A1A]"
       (click)="refresh()"
     >
       Refresh
@@ -20,40 +20,51 @@
   </header>
 
   <div class="flex-1 overflow-y-auto p-8">
-  @if (loading()) {
-    <p class="text-sm text-slate-400">Loading executions...</p>
-  } @else {
-    <div class="overflow-hidden rounded-xl border border-slate-800">
-      <table class="w-full text-left text-sm">
-        <thead class="border-b border-slate-800 bg-slate-900/80">
-          <tr>
-            <th class="px-5 py-3 font-medium text-slate-400">Execution ID</th>
-            <th class="px-5 py-3 font-medium text-slate-400">Workflow</th>
-            <th class="px-5 py-3 font-medium text-slate-400">Status</th>
-            <th class="px-5 py-3 font-medium text-slate-400">Started</th>
-            <th class="px-5 py-3 font-medium text-slate-400">Duration</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (execution of executions(); track execution.id) {
-            <tr class="border-b border-slate-800/60 transition hover:bg-slate-900/50">
-              <td class="px-5 py-4 font-mono text-slate-300">{{ execution.id }}</td>
-              <td class="px-5 py-4 text-white">{{ execution.workflow }}</td>
-              <td class="px-5 py-4">
-                <span
-                  class="rounded-full px-2.5 py-1 text-xs font-medium capitalize"
-                  [class]="statusClass(execution.status)"
-                >
-                  {{ execution.status }}
-                </span>
-              </td>
-              <td class="px-5 py-4 text-slate-400">{{ execution.startedAt }}</td>
-              <td class="px-5 py-4 text-slate-400">{{ execution.duration }}</td>
+    @if (loading()) {
+      <p class="text-sm text-[#757575]">Loading executions...</p>
+    } @else if (!backendOnline()) {
+      <p class="text-sm text-[#9A9A9A]">Connect backend to see execution history.</p>
+    } @else {
+      <div class="overflow-hidden rounded-3xl border border-[#EFE8E1] bg-white shadow-[0_4px_24px_rgba(26,26,26,0.05)]">
+        <table class="w-full text-left text-sm">
+          <thead class="border-b border-[#EFE8E1] bg-[#FFF8F4]">
+            <tr>
+              <th class="px-5 py-3 font-medium text-[#757575]">ID</th>
+              <th class="px-5 py-3 font-medium text-[#757575]">Workflow</th>
+              <th class="px-5 py-3 font-medium text-[#757575]">Engine</th>
+              <th class="px-5 py-3 font-medium text-[#757575]">Status</th>
+              <th class="px-5 py-3 font-medium text-[#757575]">Started</th>
+              <th class="px-5 py-3 font-medium text-[#757575]">Duration</th>
             </tr>
-          }
-        </tbody>
-      </table>
-    </div>
-  }
+          </thead>
+          <tbody>
+            @for (execution of executions(); track execution.id) {
+              <tr class="border-b border-[#EFE8E1]/80 transition hover:bg-[#FFF8F4]">
+                <td class="px-5 py-4 font-mono text-xs text-[#9A9A9A]">{{ execution.id.slice(0, 8) }}…</td>
+                <td class="px-5 py-4 font-medium text-[#1A1A1A]">{{ execution.workflow }}</td>
+                <td class="px-5 py-4">
+                  <span class="rounded-full bg-[#FFF2EB] px-2.5 py-0.5 text-xs text-[#F06225]">
+                    {{ execution.engine }}
+                  </span>
+                </td>
+                <td class="px-5 py-4">
+                  <span class="rounded-full px-2.5 py-1 text-xs font-medium capitalize" [class]="statusClass(execution.status)">
+                    {{ execution.status }}
+                  </span>
+                </td>
+                <td class="px-5 py-4 text-[#757575]">{{ execution.startedAt }}</td>
+                <td class="px-5 py-4 text-[#757575]">{{ execution.duration }}</td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="6" class="px-5 py-8 text-center text-[#9A9A9A]">
+                  No executions yet. Run a workflow from Dashboard or Editor.
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
   </div>
 </div>

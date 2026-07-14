@@ -1,36 +1,97 @@
-import { Component, signal } from '@angular/core';
-
-interface WorkflowNode {
-  id: string;
-  label: string;
-  type: 'trigger' | 'action' | 'condition' | 'ai';
-  icon: string;
-}
+import {
+  Component,
+  HostListener,
+  inject,
+  OnInit,
+} from '@angular/core';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { WorkflowEditorStore } from './workflow-editor.store';
+import { WorkflowChatService } from './workflow-chat.service';
+import { NodePaletteComponent } from './components/node-palette.component';
+import { WorkflowCanvasComponent } from './components/workflow-canvas.component';
+import { PropertiesPanelComponent } from './components/properties-panel.component';
+import { ChatPanelComponent } from './components/chat-panel.component';
+import { ApiService } from '../../core/services/api.service';
 
 @Component({
   selector: 'app-workflow-editor',
-  imports: [],
+  imports: [
+    NodePaletteComponent,
+    WorkflowCanvasComponent,
+    PropertiesPanelComponent,
+    ChatPanelComponent,
+    RouterLink,
+  ],
+  providers: [WorkflowEditorStore, WorkflowChatService],
   templateUrl: './workflow-editor.html',
-  styleUrl: './workflow-editor.scss',
 })
-export class WorkflowEditor {
-  protected readonly workflowName = signal('Customer Onboarding Flow');
-  protected readonly nodes = signal<WorkflowNode[]>([
-    { id: '1', label: 'Trigger', type: 'trigger', icon: '⚡' },
-    { id: '2', label: 'Get Customer Data', type: 'action', icon: '👤' },
-    { id: '3', label: 'AI Summarize', type: 'ai', icon: '✦' },
-    { id: '4', label: 'Condition', type: 'condition', icon: '◇' },
-    { id: '5', label: 'Send Email', type: 'action', icon: '✉' },
-    { id: '6', label: 'Slack Notification', type: 'action', icon: '💬' },
-  ]);
+export class WorkflowEditor implements OnInit {
+  private readonly api = inject(ApiService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  protected readonly store = inject(WorkflowEditorStore);
+  private readonly chat = inject(WorkflowChatService);
 
-  protected nodeColor(type: WorkflowNode['type']): string {
-    const colors: Record<WorkflowNode['type'], string> = {
-      trigger: 'border-amber-500/50 bg-amber-500/10',
-      action: 'border-slate-600 bg-slate-800',
-      condition: 'border-cyan-500/50 bg-cyan-500/10',
-      ai: 'border-violet-500/50 bg-violet-500/10',
+  ngOnInit(): void {
+    this.api.getAiIntegrationStatus().subscribe((status) => {
+      if (status.defaultProvider) {
+        this.store.setDefaultAiProvider(status.defaultProvider);
+      }
+    });
+
+    const id = this.route.snapshot.paramMap.get('id');
+    if (id) {
+      this.api.getWorkflow(id).subscribe({
+        next: (wf) => this.store.loadFromRecord(wf),
+        error: () => this.store.error.set('Failed to load workflow'),
+      });
+      return;
+    }
+
+    this.store.ensureChatWorkflow();
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    this.store.connectSourceId.set(null);
+  }
+
+  protected save(): void {
+    this.store.saving.set(true);
+    this.store.error.set(null);
+    this.store.message.set(null);
+    this.store.ensureConnections();
+
+    const body = {
+      name: this.store.workflowName(),
+      description: this.store.description(),
+      definition: this.store.toApiDefinition(),
+      active: this.store.active(),
+      executionMode: this.store.executionMode(),
     };
-    return colors[type];
+
+    const id = this.store.workflowId();
+    const req = id
+      ? this.api.updateWorkflow(id, body)
+      : this.api.createWorkflow(body);
+
+    req.subscribe({
+      next: (wf) => {
+        this.store.workflowId.set(wf.id);
+        this.store.saving.set(false);
+        this.store.message.set('Workflow saved!');
+        if (!id) {
+          this.router.navigate(['/workflow-editor', wf.id], { replaceUrl: true });
+        }
+      },
+      error: (err) => {
+        this.store.saving.set(false);
+        this.store.error.set(err?.error?.message ?? 'Save failed — is backend running on :3000?');
+      },
+    });
+  }
+
+  protected sendChat(): void {
+    this.chat.run();
   }
 }
