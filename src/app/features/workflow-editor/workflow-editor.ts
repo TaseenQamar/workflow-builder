@@ -26,7 +26,7 @@ import { ApiService } from '../../core/services/api.service';
   providers: [WorkflowEditorStore, WorkflowChatService],
   templateUrl: './workflow-editor.html',
   host: {
-    class: 'flex min-h-0 flex-1 flex-col overflow-hidden',
+    class: 'flex h-full min-h-0 flex-col overflow-hidden',
   },
 })
 export class WorkflowEditor implements OnInit {

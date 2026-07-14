@@ -1,15 +1,30 @@
 :host {
   display: block;
   height: 100%;
+  max-height: 100svh;
   min-height: 0;
+  overflow: hidden;
 }
 
-/* Routed page components are siblings of router-outlet */
+/*
+  page-host is the primary scroll container on mobile/desktop for list pages.
+  Workflow editor fills the host and manages its own internal scrolling.
+*/
+.page-host {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
 .page-host > :not(router-outlet) {
+  display: block;
+  min-height: 100%;
+}
+
+.page-host > app-workflow-editor {
   display: flex;
-  flex: 1 1 auto;
   flex-direction: column;
-  min-height: 0;
   height: 100%;
+  max-height: 100%;
+  min-height: 0;
   overflow: hidden;
 }

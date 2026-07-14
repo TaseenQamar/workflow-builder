@@ -1,4 +1,4 @@
-<div class="flex h-dvh max-h-dvh overflow-hidden bg-[#FCF9F6]">
+<div class="flex h-svh max-h-svh overflow-hidden bg-[#FCF9F6]">
   <!-- Mobile top bar -->
   <div
     class="fixed inset-x-0 top-0 z-[60] flex h-14 items-center gap-3 border-b border-[#EFE8E1] bg-white px-4 lg:hidden"
@@ -94,7 +94,9 @@
   </aside>
 
   <main class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pt-14 lg:pt-0">
-    <div class="page-host flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div
+      class="page-host min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain"
+    >
       <router-outlet />
     </div>
   </main>
