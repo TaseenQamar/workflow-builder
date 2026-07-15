@@ -114,6 +114,7 @@
       [highlight]="store.chatPanelHighlight()"
       (inputTextChange)="store.chatInput.set($event)"
       (send)="sendChat()"
+      (newChat)="newChat()"
     />
   </div>
 </div>

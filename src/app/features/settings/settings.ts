@@ -3,8 +3,14 @@ import { FormsModule } from '@angular/forms';
 import { timeout, catchError, of, finalize } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
 import { BackendStatusService } from '../../core/services/backend-status.service';
-import { AiIntegrationStatus } from '../../core/models/workflow.models';
 import {
+  AiIntegrationStatus,
+  AiProviderStatus,
+} from '../../core/models/workflow.models';
+import {
+  AiProviderChoice,
+  getLlmPreset,
+  LLM_PROVIDER_PRESETS,
   readStoredAiProvider,
   storeAiProvider,
 } from '../../core/constants/node-definitions';
@@ -25,16 +31,32 @@ export class Settings implements OnInit {
   protected readonly aiStatus = signal<AiIntegrationStatus>({
     openai: { configured: false, source: 'none' },
     gemini: { configured: false, source: 'none' },
+    groq: { configured: false, source: 'none' },
+    openrouter: { configured: false, source: 'none' },
+    ollama: { configured: false, source: 'none' },
+    custom: { configured: false, source: 'none' },
     defaultProvider: readStoredAiProvider(),
     demoMode: true,
     message: '',
   });
 
-  protected openaiKey = '';
-  protected geminiKey = '';
+  protected readonly presets = LLM_PROVIDER_PRESETS;
+  protected readonly configureProvider = signal<AiProviderChoice>(
+    readStoredAiProvider(),
+  );
+
+  protected endpointKey = '';
+  protected endpointBaseUrl = '';
+  protected endpointModel = '';
   protected backendUrl = '';
-  protected savingOpenai = false;
-  protected savingGemini = false;
+  protected googleSheetsJson = '';
+  protected savingGoogleSheets = false;
+  protected readonly googleSheetsStatus = signal<{
+    configured: boolean;
+    clientEmail: string | null;
+    message: string;
+  }>({ configured: false, clientEmail: null, message: '' });
+  protected savingEndpoint = false;
   protected savingProvider = false;
   protected saveMessage = signal<string | null>(null);
   protected saveError = signal<string | null>(null);
@@ -60,6 +82,9 @@ export class Settings implements OnInit {
   protected refreshStatus(): void {
     this.backendStatus.refresh();
     this.api.getN8nHealth().subscribe((h) => this.n8nHealth.set(h));
+    this.api.getGoogleSheetsStatus().subscribe((s) =>
+      this.googleSheetsStatus.set(s),
+    );
     this.api.getAiIntegrationStatus().subscribe((s) => {
       const offlineFallback =
         s.message === 'Backend offline' ||
@@ -69,28 +94,50 @@ export class Settings implements OnInit {
           ...s,
           defaultProvider: readStoredAiProvider(),
         });
+        this.loadEndpointForm(this.configureProvider());
         return;
       }
       this.aiStatus.set(s);
       if (s.defaultProvider) {
         storeAiProvider(s.defaultProvider);
+        this.configureProvider.set(s.defaultProvider);
       }
+      this.loadEndpointForm(this.configureProvider());
     });
   }
 
-  protected selectProvider(provider: 'openai' | 'gemini'): void {
+  protected providerStatus(id: AiProviderChoice): AiProviderStatus {
+    const s = this.aiStatus();
+    return (
+      s.providers?.[id] ??
+      s[id] ?? { configured: false, source: 'none' }
+    );
+  }
+
+  protected selectConfigure(provider: AiProviderChoice): void {
+    this.configureProvider.set(provider);
+    this.loadEndpointForm(provider);
+  }
+
+  protected loadEndpointForm(provider: AiProviderChoice): void {
+    const preset = getLlmPreset(provider);
+    const status = this.providerStatus(provider);
+    this.endpointKey = '';
+    this.endpointBaseUrl = status.baseUrl || preset.defaultBaseUrl;
+    this.endpointModel = status.defaultModel || preset.defaultModel;
+  }
+
+  protected selectProvider(provider: AiProviderChoice): void {
     if (this.savingProvider) return;
 
-    // Optimistic UI — select immediately so the button never feels broken
     storeAiProvider(provider);
     this.aiStatus.update((s) => ({
       ...s,
       defaultProvider: provider,
-      message:
-        provider === 'gemini'
-          ? 'Active: Google Gemini — chat will use this provider'
-          : 'Active: OpenAI — chat will use this provider',
+      message: `Active: ${getLlmPreset(provider).label} — chat will use this provider`,
     }));
+    this.configureProvider.set(provider);
+    this.loadEndpointForm(provider);
     this.saveMessage.set(null);
     this.saveError.set(null);
     this.savingProvider = true;
@@ -108,7 +155,7 @@ export class Settings implements OnInit {
       )
       .subscribe((res) => {
         storeAiProvider(provider);
-        const label = provider === 'gemini' ? 'Google Gemini' : 'OpenAI';
+        const label = getLlmPreset(provider).label;
         if (res.saved) {
           this.saveMessage.set(`${label} selected — chat will use this provider`);
           this.refreshStatus();
@@ -120,45 +167,53 @@ export class Settings implements OnInit {
       });
   }
 
-  protected saveOpenaiKey(): void {
-    if (!this.openaiKey.trim()) return;
-    this.savingOpenai = true;
+  protected saveEndpoint(): void {
+    const provider = this.configureProvider();
+    const preset = getLlmPreset(provider);
+    const body: {
+      provider: AiProviderChoice;
+      apiKey?: string;
+      baseUrl?: string;
+      defaultModel?: string;
+    } = { provider };
+
+    if (this.endpointKey.trim()) body.apiKey = this.endpointKey.trim();
+    if (provider !== 'gemini') {
+      body.baseUrl = this.endpointBaseUrl.trim() || preset.defaultBaseUrl;
+    }
+    if (this.endpointModel.trim()) {
+      body.defaultModel = this.endpointModel.trim();
+    }
+
+    if (preset.needsKey && !this.endpointKey.trim() && !this.providerStatus(provider).configured) {
+      this.saveError.set(`Paste an API key for ${preset.label}`);
+      return;
+    }
+    if (provider === 'custom' && !body.baseUrl) {
+      this.saveError.set('Enter a Custom API base URL (OpenAI-compatible)');
+      return;
+    }
+
+    this.savingEndpoint = true;
     this.saveMessage.set(null);
     this.saveError.set(null);
-    this.api.saveApiKey('OPENAI', this.openaiKey.trim()).subscribe({
-      next: (res) => {
-        this.savingOpenai = false;
-        this.openaiKey = '';
-        const storage = (res as { storage?: string })?.storage ?? 'saved';
-        this.saveMessage.set(`OpenAI key saved (${storage}). Check the green badge above.`);
-        this.refreshStatus();
+    this.api.saveLlmEndpoint(body).subscribe({
+      next: () => {
+        this.savingEndpoint = false;
+        this.endpointKey = '';
+        this.saveMessage.set(`${preset.label} config saved — now active`);
+        storeAiProvider(provider);
+        this.api.setDefaultAiProvider(provider).subscribe({
+          next: () => this.refreshStatus(),
+          error: () => this.refreshStatus(),
+        });
       },
       error: (err) => {
-        this.savingOpenai = false;
+        this.savingEndpoint = false;
         this.saveError.set(
           err?.error?.message ??
-            'Save failed — is the backend running on http://localhost:3000?',
+            'Save failed — is the backend running?',
         );
-      },
-    });
-  }
-
-  protected saveGeminiKey(): void {
-    if (!this.geminiKey.trim()) return;
-    this.savingGemini = true;
-    this.saveMessage.set(null);
-    this.saveError.set(null);
-    this.api.saveApiKey('GEMINI', this.geminiKey.trim()).subscribe({
-      next: (res) => {
-        this.savingGemini = false;
-        this.geminiKey = '';
-        const storage = (res as { storage?: string })?.storage ?? 'saved';
-        this.saveMessage.set(`Gemini key saved (${storage}). Check the green badge above.`);
-        this.refreshStatus();
-      },
-      error: (err) => {
-        this.savingGemini = false;
-        this.saveError.set(err?.error?.message ?? 'Failed to save key');
       },
     });
   }
@@ -170,7 +225,47 @@ export class Settings implements OnInit {
     return source;
   }
 
-  protected isActiveProvider(provider: 'openai' | 'gemini'): boolean {
+  protected isActiveProvider(provider: AiProviderChoice): boolean {
     return (this.aiStatus().defaultProvider ?? readStoredAiProvider()) === provider;
+  }
+
+  protected modelOptions(provider: AiProviderChoice): string[] {
+    return getLlmPreset(provider).models;
+  }
+
+  protected needsBaseUrl(provider: AiProviderChoice): boolean {
+    return provider !== 'gemini';
+  }
+
+  protected saveGoogleSheetsCredentials(): void {
+    const json = this.googleSheetsJson.trim();
+    if (!json) {
+      this.saveError.set('Paste the full Google Service Account JSON key');
+      return;
+    }
+    this.savingGoogleSheets = true;
+    this.saveMessage.set(null);
+    this.saveError.set(null);
+    this.api.saveGoogleSheetsCredentials(json).subscribe({
+      next: (res) => {
+        this.savingGoogleSheets = false;
+        if (res.saved) {
+          this.googleSheetsJson = '';
+          this.saveMessage.set(
+            res.message ??
+              `Google Sheets saved (${res.clientEmail}). Share your sheet with that email.`,
+          );
+          this.refreshStatus();
+        } else {
+          this.saveError.set(res.message ?? 'Failed to save Google credentials');
+        }
+      },
+      error: (err) => {
+        this.savingGoogleSheets = false;
+        this.saveError.set(
+          err?.error?.message ?? 'Save failed — is the backend running?',
+        );
+      },
+    });
   }
 }

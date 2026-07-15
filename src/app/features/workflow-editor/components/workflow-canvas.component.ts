@@ -19,6 +19,7 @@ import {
   getNodePortLayout,
   getPortPosition,
   horizontalBezierPath,
+  canAttachAsAgentTool,
   isConfigNode,
   isTriggerNode,
   nodeColor,
@@ -149,9 +150,27 @@ interface AddNodeMenuState {
             [style.height.px]="nodeHeight(node)"
             [class.is-config]="isConfigNode(node.type)"
             [class.is-agent]="node.type === 'ai_agent'"
+            [class.node-running]="runStatus(node.id) === 'running'"
+            [class.node-success]="runStatus(node.id) === 'success'"
+            [class.node-error]="runStatus(node.id) === 'error'"
             (pointerdown)="onNodePointerDown($event, node)"
             (click)="onNodeClick($event, node)"
           >
+            @if (runStatus(node.id) === 'running') {
+              <div class="node-status-badge running" title="Running…">
+                <span class="spinner"></span>
+              </div>
+            } @else if (runStatus(node.id) === 'success') {
+              <div class="node-status-badge success" title="Success">✓</div>
+            } @else if (runStatus(node.id) === 'error') {
+              <div
+                class="node-status-badge error"
+                [title]="store.nodeRunError()[node.id] || 'Failed'"
+              >
+                !
+              </div>
+            }
+
             @if (isConfigNode(node.type)) {
               <div class="flex h-full flex-col items-center justify-center px-1 text-center">
                 <span class="text-xl">{{ node.icon }}</span>
@@ -171,6 +190,8 @@ interface AddNodeMenuState {
                     <p class="mt-0.5 text-[10px] text-[#2BBFBA]">Tools Agent</p>
                   } @else if (node.type === 'chat_trigger') {
                     <p class="mt-0.5 text-[10px] text-rose-300">Prompt → Run workflow</p>
+                  } @else if (canBeTool(node.type)) {
+                    <p class="mt-0.5 text-[10px] text-teal-700">Top dot → Agent Tool</p>
                   } @else {
                     <p class="node-subtitle mt-0.5 text-xs capitalize" [class]="nodeSubtextColor(node.type)">{{ node.type }}</p>
                   }
@@ -343,6 +364,53 @@ interface AddNodeMenuState {
       border-top-left-radius: 28px;
       border-bottom-left-radius: 28px;
     }
+    .workflow-node.node-running {
+      box-shadow: 0 0 0 2px #2bbfba, 0 0 16px rgba(43, 191, 186, 0.45);
+    }
+    .workflow-node.node-success {
+      box-shadow: 0 0 0 2px #22c55e;
+    }
+    .workflow-node.node-error {
+      box-shadow: 0 0 0 2px #ef4444, 0 0 12px rgba(239, 68, 68, 0.35);
+    }
+    .node-status-badge {
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      z-index: 20;
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      border: 2px solid #fff;
+    }
+    .node-status-badge.running {
+      background: #2bbfba;
+    }
+    .node-status-badge.success {
+      background: #22c55e;
+    }
+    .node-status-badge.error {
+      background: #ef4444;
+    }
+    .node-status-badge .spinner {
+      width: 10px;
+      height: 10px;
+      border: 2px solid rgba(255, 255, 255, 0.35);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: node-spin 0.7s linear infinite;
+    }
+    @keyframes node-spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
     .workflow-node.is-config {
       border-radius: 9999px;
     }
@@ -463,6 +531,14 @@ export class WorkflowCanvasComponent {
 
   protected isTrigger(node: CanvasNode): boolean {
     return isTriggerNode(node.type);
+  }
+
+  protected canBeTool(type: CanvasNode['type']): boolean {
+    return canAttachAsAgentTool(type);
+  }
+
+  protected runStatus(nodeId: string): 'idle' | 'running' | 'success' | 'error' {
+    return this.store.nodeRunStatus()[nodeId] ?? 'idle';
   }
 
   protected nodeClasses(node: CanvasNode): string {
@@ -642,9 +718,39 @@ export class WorkflowCanvasComponent {
         const targetPort = portIn?.dataset['portId'];
         if (targetId && targetPort && targetId !== wire.fromId) {
           this.store.addConfigConnection(wire.fromId, targetId, targetPort);
+          this.store.message.set(
+            targetPort === 'tool'
+              ? 'Tool connected to AI Agent ✓'
+              : `Connected to Agent ${targetPort}`,
+          );
         }
         this.hoverConfigPortKey.set(null);
       } else {
+        // Flow wire dropped on Agent Tool/Memory/ChatModel port → n8n tool/config wire
+        const configIn = el?.closest('[data-config-in]') as HTMLElement | null;
+        if (configIn) {
+          const nodeEl = configIn.closest('[data-node-id]') as HTMLElement | null;
+          const targetId = nodeEl?.dataset['nodeId'];
+          const targetPort = configIn.dataset['portId'];
+          const target = this.store.nodes().find((n) => n.id === targetId);
+          if (
+            targetId &&
+            targetPort &&
+            target?.type === 'ai_agent' &&
+            targetId !== wire.fromId
+          ) {
+            this.store.addConfigConnection(wire.fromId, targetId, targetPort);
+            this.store.message.set(
+              targetPort === 'tool'
+                ? 'Google Sheets / action → Agent Tool connected ✓'
+                : `Connected to Agent ${targetPort}`,
+            );
+            this.hoverConfigPortKey.set(null);
+            this.hoverInputKey.set(null);
+            this.wireDrag.set(null);
+            return;
+          }
+        }
         const portIn = el?.closest('[data-port-in]') as HTMLElement | null;
         const nodeEl = portIn?.closest('[data-node-id]') as HTMLElement | null;
         const targetId = nodeEl?.dataset['nodeId'];

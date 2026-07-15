@@ -21,18 +21,31 @@ export interface ChatMessage {
           <span class="shrink-0 text-base">💬</span>
           <div class="min-w-0">
             <p class="truncate text-sm font-medium text-[#1A1A1A]">Chat Trigger</p>
-            <p class="hidden text-[11px] text-[#9A9A9A] sm:block">Message → run workflow → reply below</p>
+            <p class="hidden text-[11px] text-[#9A9A9A] sm:block">
+              Memory remembers past turns (Window Buffer) — New chat resets session
+            </p>
           </div>
         </div>
-        @if (running()) {
-          <span class="animate-pulse text-xs text-[#2BBFBA]">Running...</span>
-        }
+        <div class="flex shrink-0 items-center gap-2">
+          @if (running()) {
+            <span class="animate-pulse text-xs text-[#2BBFBA]">Running...</span>
+          }
+          <button
+            type="button"
+            class="rounded-lg border border-[#CDDBD9] bg-white px-2.5 py-1 text-[11px] font-medium text-[#4A4A4A] hover:border-[#2BBFBA] hover:text-[#17807C] disabled:opacity-50"
+            [disabled]="running()"
+            (click)="newChat.emit()"
+            title="Clear chat + start a new memory session"
+          >
+            New chat
+          </button>
+        </div>
       </div>
 
       <div class="max-h-36 min-h-[3.5rem] overflow-y-auto overscroll-contain px-3 py-2 sm:max-h-48 sm:px-4 sm:py-3">
         @if (messages().length === 0 && !running()) {
           <p class="text-center text-xs text-[#9A9A9A]">
-            Type your first message and click Chat — the AI Agent reply will appear here
+            Type a message — with Memory attached, the agent will remember this conversation
           </p>
         } @else {
           <div class="space-y-3">
@@ -88,4 +101,5 @@ export class ChatPanelComponent {
 
   readonly inputTextChange = output<string>();
   readonly send = output<void>();
+  readonly newChat = output<void>();
 }

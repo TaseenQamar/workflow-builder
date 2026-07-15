@@ -1,7 +1,7 @@
 <div>
   <header class="border-b border-[#D9E5E3] bg-white/70 px-4 py-4 backdrop-blur sm:px-8 sm:py-6">
     <h1 class="text-xl font-bold text-[#1A1A1A] sm:text-2xl">Settings</h1>
-    <p class="mt-1 text-sm text-[#757575]">API keys & backend status</p>
+    <p class="mt-1 text-sm text-[#757575]">API keys, free chat models & backend status</p>
   </header>
 
   <div class="p-4 pb-10 sm:p-8">
@@ -59,143 +59,180 @@
     </section>
 
     <section class="mb-10">
-      <h2 class="text-lg font-medium text-[#1A1A1A]">Default AI Provider</h2>
+      <h2 class="text-lg font-medium text-[#1A1A1A]">Chat Models (multi-provider)</h2>
       <p class="mt-1 text-sm text-[#757575]">
-        Whichever you select will be used for chat / search
+        Select any provider for chat. Free options: Gemini, Groq, OpenRouter, Ollama, or paste any OpenAI-compatible API URL.
       </p>
       <p class="mt-1 text-xs text-[#2BBFBA]/90">{{ aiStatus().message }}</p>
 
-      <div class="mt-4 grid gap-3 sm:grid-cols-2 max-w-2xl">
-        <button
-          type="button"
-          class="rounded-xl border-2 p-4 text-left transition disabled:opacity-60"
-          [class.border-[#2BBFBA]]="isActiveProvider('openai')"
-          [class.bg-[#E6F7F6]]="isActiveProvider('openai')"
-          [class.ring-1]="isActiveProvider('openai')"
-          [class.ring-[#9FE0DC]]="isActiveProvider('openai')"
-          [class.border-[#CDDBD9]]="!isActiveProvider('openai')"
-          [class.bg-white]="!isActiveProvider('openai')"
-          [disabled]="savingProvider"
-          (click)="selectProvider('openai')"
-        >
-          <div class="flex items-center justify-between">
-            <span class="text-lg">✦</span>
-            @if (isActiveProvider('openai')) {
-              <span class="rounded-full bg-[#1FA8A3]/30 px-2 py-0.5 text-[10px] text-[#17807C]">Active</span>
+      <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 max-w-4xl">
+        @for (p of presets; track p.id) {
+          <button
+            type="button"
+            class="rounded-xl border-2 p-4 text-left transition disabled:opacity-60"
+            [class.border-[#2BBFBA]]="isActiveProvider(p.id)"
+            [class.bg-[#E6F7F6]]="isActiveProvider(p.id)"
+            [class.ring-1]="isActiveProvider(p.id)"
+            [class.ring-[#9FE0DC]]="isActiveProvider(p.id)"
+            [class.border-[#CDDBD9]]="!isActiveProvider(p.id)"
+            [class.bg-white]="!isActiveProvider(p.id)"
+            [disabled]="savingProvider"
+            (click)="selectProvider(p.id); selectConfigure(p.id)"
+          >
+            <div class="flex items-center justify-between gap-2">
+              <p class="font-medium text-[#1A1A1A]">{{ p.label }}</p>
+              <div class="flex items-center gap-1">
+                @if (p.free) {
+                  <span class="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] text-emerald-700">Free</span>
+                }
+                @if (isActiveProvider(p.id)) {
+                  <span class="rounded-full bg-[#1FA8A3]/30 px-2 py-0.5 text-[10px] text-[#17807C]">Active</span>
+                }
+              </div>
+            </div>
+            <p class="mt-1 text-xs text-[#757575]">{{ p.short }}</p>
+            @if (providerStatus(p.id).configured) {
+              <p class="mt-2 truncate text-xs text-emerald-600">
+                ✓
+                {{ providerStatus(p.id).maskedKey || providerStatus(p.id).baseUrl || 'ready' }}
+              </p>
+            } @else {
+              <p class="mt-2 text-xs text-amber-600">Not configured</p>
             }
-          </div>
-          <p class="mt-2 font-medium text-[#1A1A1A]">OpenAI</p>
-          <p class="text-xs text-[#757575]">GPT-4o-mini · ChatGPT</p>
-          @if (aiStatus().openai.configured) {
-            <p class="mt-2 text-xs text-emerald-600">Key: {{ aiStatus().openai.maskedKey }}</p>
-          } @else {
-            <p class="mt-2 text-xs text-amber-600">Key not set</p>
-          }
-        </button>
-
-        <button
-          type="button"
-          class="rounded-xl border-2 p-4 text-left transition disabled:opacity-60"
-          [class.border-[#2BBFBA]]="isActiveProvider('gemini')"
-          [class.bg-[#E6F7F6]]="isActiveProvider('gemini')"
-          [class.ring-1]="isActiveProvider('gemini')"
-          [class.ring-[#9FE0DC]]="isActiveProvider('gemini')"
-          [class.border-[#CDDBD9]]="!isActiveProvider('gemini')"
-          [class.bg-white]="!isActiveProvider('gemini')"
-          [disabled]="savingProvider"
-          (click)="selectProvider('gemini')"
-        >
-          <div class="flex items-center justify-between">
-            <span class="text-lg">◇</span>
-            @if (isActiveProvider('gemini')) {
-              <span class="rounded-full bg-[#1FA8A3]/30 px-2 py-0.5 text-[10px] text-[#17807C]">Active</span>
-            }
-          </div>
-          <p class="mt-2 font-medium text-[#1A1A1A]">Google Gemini</p>
-          <p class="text-xs text-[#757575]">gemini-2.0-flash · Google AI</p>
-          @if (aiStatus().gemini.configured) {
-            <p class="mt-2 text-xs text-emerald-600">Key: {{ aiStatus().gemini.maskedKey }}</p>
-          } @else {
-            <p class="mt-2 text-xs text-amber-600">Key not set</p>
-          }
-        </button>
+          </button>
+        }
       </div>
       @if (savingProvider) {
         <p class="mt-2 text-xs text-[#757575]">Saving provider…</p>
       }
     </section>
 
-    <section class="mb-10">
-      <h2 class="text-lg font-medium text-[#1A1A1A]">API Keys</h2>
-      <p class="mt-1 text-sm text-[#757575]">You can save both keys — choose the active provider above</p>
-      <p class="mt-1 text-xs text-amber-600/90">
-        Note: After save, the input clears for security. The key is not removed — check the
-        <strong>green badge</strong> (sk-••••) above.
+    <section class="mb-10 max-w-2xl">
+      <h2 class="text-lg font-medium text-[#1A1A1A]">Configure provider</h2>
+      <p class="mt-1 text-sm text-[#757575]">
+        Paste API key and/or base URL. Custom = any OpenAI-compatible endpoint.
       </p>
 
-      <div class="mt-4 grid gap-4 lg:grid-cols-2">
-        <div class="rounded-xl border border-[#D9E5E3] bg-white p-5">
-          <div class="flex items-center justify-between">
-            <p class="font-medium text-[#1A1A1A]">OpenAI</p>
-            @if (aiStatus().openai.configured) {
-              <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs text-emerald-700">
-                ✓ {{ aiStatus().openai.maskedKey }} ({{ sourceLabel(aiStatus().openai.source) }})
-              </span>
-            } @else {
-              <span class="rounded-full bg-amber-50 px-3 py-1 text-xs text-amber-700">Not set</span>
-            }
-          </div>
-          @if (aiStatus().openai.configured) {
-            <p class="mt-2 text-xs text-emerald-600/80">Key saved — you can use Chat workflows.</p>
+      <div class="mt-3">
+        <label class="block text-xs text-[#757575]">Provider</label>
+        <select
+          class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-white px-3 py-2 text-sm text-[#1A1A1A] outline-none focus:border-[#2BBFBA]"
+          [ngModel]="configureProvider()"
+          (ngModelChange)="selectConfigure($event)"
+        >
+          @for (p of presets; track p.id) {
+            <option [value]="p.id">{{ p.label }}{{ p.free ? ' (free)' : '' }}</option>
           }
-          <input
-            type="password"
-            class="mt-3 w-full rounded-lg border border-[#CDDBD9] bg-[#F5FBFA] px-3 py-2 text-sm text-[#1A1A1A] outline-none focus:border-[#2BBFBA]"
-            placeholder="Paste a new key starting with sk-..."
-            [(ngModel)]="openaiKey"
-          />
-          <button
-            type="button"
-            class="mt-3 rounded-lg bg-[#2BBFBA] px-4 py-2 text-sm text-white hover:bg-[#1FA8A3] disabled:opacity-50"
-            [disabled]="savingOpenai || !openaiKey.trim()"
-            (click)="saveOpenaiKey()"
-          >
-            {{ savingOpenai ? 'Saving...' : 'Save OpenAI Key' }}
-          </button>
-        </div>
-
-        <div class="rounded-xl border border-[#D9E5E3] bg-white p-5">
-          <div class="flex items-center justify-between">
-            <p class="font-medium text-[#1A1A1A]">Google Gemini</p>
-            @if (aiStatus().gemini.configured) {
-              <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs text-emerald-700">
-                ✓ {{ aiStatus().gemini.maskedKey }} ({{ sourceLabel(aiStatus().gemini.source) }})
-              </span>
-            } @else {
-              <span class="rounded-full bg-amber-50 px-3 py-1 text-xs text-amber-700">Not set</span>
-            }
-          </div>
-          <input
-            type="password"
-            class="mt-3 w-full rounded-lg border border-[#CDDBD9] bg-[#F5FBFA] px-3 py-2 text-sm text-[#1A1A1A] outline-none focus:border-[#2BBFBA]"
-            placeholder="AIza..."
-            [(ngModel)]="geminiKey"
-          />
-          <button
-            type="button"
-            class="mt-3 rounded-lg bg-[#2BBFBA] px-4 py-2 text-sm text-white hover:bg-[#1FA8A3] disabled:opacity-50"
-            [disabled]="savingGemini || !geminiKey.trim()"
-            (click)="saveGeminiKey()"
-          >
-            {{ savingGemini ? 'Saving...' : 'Save Gemini Key' }}
-          </button>
-        </div>
+        </select>
       </div>
 
-      <p class="mt-3 text-xs text-[#9A9A9A]">
-        Or set in backend <code class="text-[#757575]">workflow-build-backend/.env</code>:
-        OPENAI_API_KEY=sk-... or GEMINI_API_KEY=AIza...
+      <p class="mt-2 text-xs text-[#757575]">
+        {{ presets.find(p => p.id === configureProvider())?.hint }}
       </p>
+
+      @if (needsBaseUrl(configureProvider())) {
+        <div class="mt-3">
+          <label class="block text-xs text-[#757575]">API Base URL</label>
+          <input
+            class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-[#F5FBFA] px-3 py-2 text-sm text-[#1A1A1A] outline-none focus:border-[#2BBFBA]"
+            [(ngModel)]="endpointBaseUrl"
+            placeholder="https://api.groq.com/openai/v1"
+          />
+        </div>
+      }
+
+      <div class="mt-3">
+        <label class="block text-xs text-[#757575]">API Key</label>
+        <input
+          type="password"
+          class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-[#F5FBFA] px-3 py-2 text-sm text-[#1A1A1A] outline-none focus:border-[#2BBFBA]"
+          [(ngModel)]="endpointKey"
+          [placeholder]="
+            configureProvider() === 'ollama'
+              ? 'Optional (default: ollama)'
+              : 'Paste API key…'
+          "
+        />
+        @if (providerStatus(configureProvider()).configured && providerStatus(configureProvider()).maskedKey) {
+          <p class="mt-1 text-xs text-emerald-600">
+            Saved: {{ providerStatus(configureProvider()).maskedKey }}
+            ({{ sourceLabel(providerStatus(configureProvider()).source) }})
+          </p>
+        }
+      </div>
+
+      <div class="mt-3">
+        <label class="block text-xs text-[#757575]">Default model</label>
+        @if (modelOptions(configureProvider()).length) {
+          <select
+            class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-[#F5FBFA] px-3 py-2 text-sm text-[#1A1A1A] outline-none focus:border-[#2BBFBA]"
+            [(ngModel)]="endpointModel"
+          >
+            @for (m of modelOptions(configureProvider()); track m) {
+              <option [value]="m">{{ m }}</option>
+            }
+          </select>
+        }
+        <input
+          class="mt-2 w-full rounded-lg border border-[#CDDBD9] bg-white px-3 py-2 text-sm text-[#1A1A1A] outline-none focus:border-[#2BBFBA]"
+          [(ngModel)]="endpointModel"
+          placeholder="Or type any model id…"
+        />
+      </div>
+
+      <button
+        type="button"
+        class="mt-4 rounded-lg bg-[#2BBFBA] px-4 py-2 text-sm font-medium text-white hover:bg-[#1FA8A3] disabled:opacity-50"
+        [disabled]="savingEndpoint"
+        (click)="saveEndpoint()"
+      >
+        {{ savingEndpoint ? 'Saving…' : 'Save & use this provider' }}
+      </button>
+
+      <p class="mt-3 text-xs text-[#9A9A9A]">
+        Tips: Groq → console.groq.com · OpenRouter → openrouter.ai (pick <code>:free</code> models) ·
+        Ollama → install locally then <code>ollama pull llama3.2</code>
+      </p>
+    </section>
+
+    <section class="mb-10 max-w-2xl">
+      <h2 class="text-lg font-medium text-[#1A1A1A]">Google Sheets (n8n-style)</h2>
+      <p class="mt-1 text-sm text-[#757575]">
+        Add/update rows on a real Google Sheet — paste Service Account JSON (like n8n credentials).
+      </p>
+      @if (googleSheetsStatus().configured) {
+        <p class="mt-2 text-sm text-emerald-700">
+          ✓ Ready — {{ googleSheetsStatus().clientEmail }}
+        </p>
+        <p class="mt-1 text-xs text-[#757575]">
+          Share your sheet → grant this email <strong>Editor</strong>, or writes will fail.
+        </p>
+      } @else {
+        <p class="mt-2 text-sm text-amber-700">{{ googleSheetsStatus().message || 'Not configured' }}</p>
+      }
+
+      <ol class="mt-3 list-decimal space-y-1 pl-5 text-xs text-[#757575]">
+        <li>Google Cloud Console → create Service Account → download JSON key</li>
+        <li>Enable <strong>Google Sheets API</strong> for that project</li>
+        <li>Paste JSON below → Save</li>
+        <li>Copy Spreadsheet ID from the sheet URL; note the tab name (e.g. Dec-8-2021)</li>
+        <li>In the workflow, use a <strong>Google Sheets</strong> node → Append</li>
+      </ol>
+
+      <textarea
+        class="mt-3 w-full rounded-lg border border-[#CDDBD9] bg-[#F5FBFA] px-3 py-2 font-mono text-xs text-[#1A1A1A] outline-none focus:border-[#2BBFBA]"
+        rows="6"
+        [(ngModel)]="googleSheetsJson"
+        placeholder='{ "type": "service_account", "project_id": "...", "private_key": "-----BEGIN PRIVATE KEY-----\\n...", "client_email": "...@....iam.gserviceaccount.com" }'
+      ></textarea>
+      <button
+        type="button"
+        class="mt-3 rounded-lg bg-[#2BBFBA] px-4 py-2 text-sm font-medium text-white hover:bg-[#1FA8A3] disabled:opacity-50"
+        [disabled]="savingGoogleSheets || !googleSheetsJson.trim()"
+        (click)="saveGoogleSheetsCredentials()"
+      >
+        {{ savingGoogleSheets ? 'Saving…' : 'Save Google Sheets credentials' }}
+      </button>
     </section>
 
     <section class="mb-10">
@@ -222,32 +259,16 @@
         <div class="rounded-xl border border-[#D9E5E3] bg-white p-5">
           <div class="flex items-center justify-between">
             <div>
-              <p class="font-medium text-[#1A1A1A]">n8n Engine <span class="text-xs text-[#9A9A9A]">(optional)</span></p>
-              <p class="text-sm text-[#757575]">http://localhost:5678</p>
+              <p class="font-medium text-[#1A1A1A]">n8n</p>
+              <p class="text-sm text-[#757575]">Optional hybrid engine</p>
             </div>
             @if (n8nHealth().connected) {
-              <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs text-emerald-700">Online</span>
+              <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs text-emerald-700">Connected</span>
             } @else {
-              <span class="rounded-full bg-[#E8F0EF] px-3 py-1 text-xs text-[#757575]">Offline</span>
+              <span class="rounded-full bg-amber-50 px-3 py-1 text-xs text-amber-700">Not required</span>
             }
           </div>
-          <p class="mt-2 text-xs text-[#9A9A9A]">
-            n8n is <strong class="text-[#757575]">optional</strong> for Chat + AI Agent (LOCAL engine).
-            Only needed for HYBRID/N8N mode:
-            <code class="text-[#757575]">cd workflow-builder && npm run n8n</code>
-          </p>
         </div>
-      </div>
-    </section>
-
-    <section>
-      <h2 class="text-lg font-medium text-[#1A1A1A]">Chat — Quick Start</h2>
-      <div class="mt-4 max-w-2xl rounded-xl border border-[#D9E5E3] bg-white p-5 text-sm text-[#4A4A4A]">
-        <ol class="list-decimal space-y-2 pl-5 text-[#757575]">
-          <li>Select <strong class="text-[#1A1A1A]">OpenAI</strong> or <strong class="text-[#1A1A1A]">Gemini</strong></li>
-          <li>Save that provider's API key</li>
-          <li>Open Workflow Editor → type a message → click <strong class="text-[#1A1A1A]">Chat</strong></li>
-        </ol>
       </div>
     </section>
   </div>

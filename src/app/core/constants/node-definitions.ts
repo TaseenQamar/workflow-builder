@@ -98,7 +98,11 @@ export const NODE_CATALOG: NodeDefinition[] = [
     description: 'Send via SMTP or SendGrid',
     icon: '✉',
     category: 'Actions',
-    defaultData: { to: '{{email}}', subject: 'Notification', body: 'Hello!' },
+    defaultData: {
+      to: '',
+      subject: '{{emailSubject}}',
+      body: '{{emailNotifyBody}}',
+    },
   },
   {
     type: 'slack',
@@ -137,24 +141,57 @@ export const NODE_CATALOG: NodeDefinition[] = [
   {
     type: 'spreadsheet',
     label: 'Spreadsheet / Posts Sheet',
-    description: 'Excel-like rows — load Message/Link posts for social scheduling',
+    description: 'Local Postgres sheet — CSV import / add / update (not Google)',
     icon: '📊',
     category: 'Actions',
     defaultData: {
-      action: 'load_posts',
+      action: 'add_row',
       sheetName: 'Posts',
       pickMode: 'rotate_daily',
+      headers: 'Message,Link,ImageUrl',
       postsCsv:
         'Message,Link,ImageUrl\nGood morning from Cluster Valley!,https://example.com,\nOur new AI workflow tip of the day,,\nFriday feature update is live!,https://example.com/blog,',
-      headers: 'Message,Link,ImageUrl',
-      rowCol1: '{{name}}',
-      rowCol2: '{{aiResponse}}',
+      rowCol1: '{{aiResponse}}',
+      rowCol2: '',
+      rowCol3: '',
+      rowIndex: '1',
+      columnIndex: '0',
+      cellValue: '{{aiResponse}}',
+      columnUpdates: '',
+    },
+  },
+  {
+    type: 'google_sheets',
+    label: 'Google Sheets',
+    description: 'n8n-style — append/update/read your real Google Sheet (Service Account)',
+    icon: '📗',
+    category: 'Actions',
+    defaultData: {
+      operation: 'auto',
+      spreadsheetId: '',
+      sheetName: '',
+      range: '',
+      dryRun: 'true',
+      requireChatIntent: 'true',
+      lookupColumn: '',
+      lookupValue: '*',
+      matchMode: 'all_rows',
+      columnsToUpdate: [],
+      columnMap: {},
+      headersList: [],
+      colDate: '{{date}}',
+      colStart: '{{startTime}}',
+      colEnd: '{{endTime}}',
+      colDuration: '{{duration}}',
+      colTicket: '{{ticket}}',
+      colTask: '{{aiResponse}}{{task}}{{message}}',
+      rowValues: '',
     },
   },
   {
     type: 'facebook',
     label: 'Facebook Page Post',
-    description: 'Post text/link to a Facebook Page at schedule time',
+    description: 'Post text, link, or image (public HTTPS URL) to a Facebook Page',
     icon: '📘',
     category: 'Social',
     defaultData: {
@@ -162,6 +199,7 @@ export const NODE_CATALOG: NodeDefinition[] = [
       accessToken: '',
       message: '{{nextPost.message}}',
       link: '{{nextPost.link}}',
+      imageUrl: '{{nextPost.imageUrl}}',
       dryRun: 'true',
     },
   },
@@ -225,7 +263,7 @@ export const NODE_CATALOG: NodeDefinition[] = [
     defaultData: {
       agentType: 'tools',
       instructions:
-        'You are a helpful assistant. Use {{message}}. If HTTP data exists, use it from context.',
+        'You are an n8n-style Tools Agent. Chat reaches you first. When the user asks to change Google Sheets or send email, CALL the connected tools (google_sheets, send_email). Do not invent Google Apps Script. After tools run, reply in the user\'s language with what actually happened.',
       outputKey: 'aiResponse',
     },
   },
@@ -240,10 +278,15 @@ export const NODE_CATALOG: NodeDefinition[] = [
   {
     type: 'memory',
     label: 'Window Buffer Memory',
-    description: 'Attach to AI Agent Memory port',
+    description: 'n8n-style memory — remembers past chat turns for the AI Agent',
     icon: '🗂',
     category: 'AI',
-    defaultData: { memoryType: 'window_buffer', windowSize: 10 },
+    defaultData: {
+      memoryType: 'window_buffer',
+      windowSize: 10,
+      sessionKey: '{{sessionId}}',
+      storage: 'postgresql',
+    },
   },
   {
     type: 'tool',
@@ -447,28 +490,36 @@ export function isConfigNode(type: NodeType): boolean {
   return type === 'chat_model' || type === 'memory' || type === 'tool';
 }
 
-export type AiProviderChoice = 'openai' | 'gemini';
+export type {
+  AiProviderChoice,
+} from './llm-providers';
+export {
+  AI_PROVIDER_CHOICES,
+  getLlmPreset,
+  isAiProviderChoice,
+  LLM_PROVIDER_PRESETS,
+} from './llm-providers';
+import {
+  AiProviderChoice,
+  getLlmPreset,
+  isAiProviderChoice,
+} from './llm-providers';
 
 export function chatModelConfigForProvider(provider: AiProviderChoice): {
   label: string;
   data: Record<string, unknown>;
 } {
-  if (provider === 'gemini') {
-    return {
-      label: 'Gemini Chat Model',
-      data: { provider: 'gemini', model: 'gemini-2.0-flash' },
-    };
-  }
+  const preset = getLlmPreset(provider);
   return {
-    label: 'OpenAI Chat Model',
-    data: { provider: 'openai', model: 'gpt-4o-mini' },
+    label: `${preset.label} Chat Model`,
+    data: { provider: preset.id, model: preset.defaultModel },
   };
 }
 
 export function readStoredAiProvider(): AiProviderChoice {
   try {
     const v = localStorage.getItem('wb-default-ai-provider');
-    return v === 'gemini' ? 'gemini' : 'openai';
+    return isAiProviderChoice(v) ? v : 'openai';
   } catch {
     return 'openai';
   }
@@ -535,10 +586,33 @@ export function getNodePortLayout(type: NodeType): NodePortLayout {
   }
 
   const isTrigger = isTriggerNode(type);
+  // n8n-style: Sheets / Email (etc.) can attach as Agent Tool via top config port
+  const canBeAgentTool =
+    type === 'google_sheets' ||
+    type === 'email' ||
+    type === 'slack' ||
+    type === 'http' ||
+    type === 'telegram';
+
   return {
     inputs: isTrigger ? [] : [{ id: 'main', side: 'left', offsetY: 0.5, kind: 'flow' }],
-    outputs: [{ id: 'main', side: 'right', offsetY: 0.5, kind: 'flow' }],
+    outputs: canBeAgentTool
+      ? [
+          { id: 'main', side: 'right', offsetY: 0.5, kind: 'flow' },
+          { id: 'config', side: 'top', offsetX: 0.5, kind: 'config' },
+        ]
+      : [{ id: 'main', side: 'right', offsetY: 0.5, kind: 'flow' }],
   };
+}
+
+export function canAttachAsAgentTool(type: NodeType): boolean {
+  return (
+    type === 'google_sheets' ||
+    type === 'email' ||
+    type === 'slack' ||
+    type === 'http' ||
+    type === 'telegram'
+  );
 }
 
 export function getPortPosition(
@@ -613,6 +687,7 @@ export function nodeColor(type: NodeType): string {
     respond_webhook: 'border-amber-300 bg-amber-50',
     n8n: 'border-[#9FE0DC] bg-[#E6F7F6]',
     spreadsheet: 'border-emerald-300 bg-emerald-50',
+    google_sheets: 'border-green-400 bg-green-50',
     facebook: 'border-blue-400 bg-blue-50',
     instagram: 'border-pink-400 bg-pink-50',
     linkedin: 'border-sky-400 bg-sky-50',
@@ -644,6 +719,7 @@ export function nodeIconBg(type: NodeType): string {
     code: 'bg-cyan-100',
     slack: 'bg-pink-100',
     spreadsheet: 'bg-emerald-100',
+    google_sheets: 'bg-green-100',
     n8n: 'bg-[#E6F7F6]',
   };
   return map[type] ?? 'bg-[#E6F7F6]';

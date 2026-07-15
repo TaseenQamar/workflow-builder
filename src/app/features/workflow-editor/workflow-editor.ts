@@ -185,4 +185,10 @@ export class WorkflowEditor implements OnInit {
   protected sendChat(): void {
     this.chat.run();
   }
+
+  protected newChat(): void {
+    const oldSession = this.store.chatSessionId();
+    this.store.newChatSession();
+    this.api.clearChatMemory(oldSession).subscribe();
+  }
 }

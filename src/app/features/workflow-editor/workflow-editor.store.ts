@@ -35,11 +35,18 @@ export class WorkflowEditorStore {
   readonly connectSourceId = signal<string | null>(null);
   readonly saving = signal(false);
   readonly running = signal(false);
+  /** Live run UI: idle | running | success | error */
+  readonly nodeRunStatus = signal<
+    Record<string, 'idle' | 'running' | 'success' | 'error'>
+  >({});
+  readonly nodeRunError = signal<Record<string, string>>({});
   readonly message = signal<string | null>(null);
   readonly error = signal<string | null>(null);
   readonly chatMessages = signal<{ id: string; role: 'user' | 'assistant' | 'error'; text: string }[]>([]);
   readonly chatInput = signal('');
   readonly chatPanelHighlight = signal(false);
+  /** Stable per-conversation id for n8n-style Window Buffer Memory */
+  readonly chatSessionId = signal<string>(crypto.randomUUID());
   readonly defaultAiProvider = signal<AiProviderChoice>(readStoredAiProvider());
 
   readonly hasChatTrigger = computed(() =>
@@ -156,13 +163,24 @@ export class WorkflowEditorStore {
     };
   }
 
-  attachAgentDefaults(agentId: string): void {
+  /**
+   * Attach Chat Model (always if missing).
+   * Memory only when includeMemory=true (button / new template) —
+   * never force Memory back after user deletes it.
+   */
+  attachAgentDefaults(
+    agentId: string,
+    opts?: { includeMemory?: boolean },
+  ): void {
+    const includeMemory = opts?.includeMemory === true;
     const agent = this.nodes().find((n) => n.id === agentId);
     if (!agent || agent.type !== 'ai_agent') return;
 
     const status = this.getAgentAttachmentStatus(agentId);
     const newNodes = [...this.nodes()];
     const newConns = [...this.connections()];
+    let addedModel = false;
+    let addedMemory = false;
 
     if (!status.chatModel) {
       const model = this.createChatModelNode({
@@ -176,9 +194,10 @@ export class WorkflowEditorStore {
         kind: 'config',
         targetPort: 'chatModel',
       });
+      addedModel = true;
     }
 
-    if (!status.memory) {
+    if (includeMemory && !status.memory) {
       const def = NODE_CATALOG.find((n) => n.type === 'memory')!;
       const mem = createNodeFromDefinition(def, {
         x: snapToGrid(agent.position.x + 120),
@@ -191,14 +210,26 @@ export class WorkflowEditorStore {
         kind: 'config',
         targetPort: 'memory',
       });
+      addedMemory = true;
     }
+
+    if (!addedModel && !addedMemory) return;
 
     this.nodes.set(newNodes);
     this.connections.set(newConns);
     const p = this.defaultAiProvider();
     this.message.set(
-      `Attached ${p === 'gemini' ? 'Gemini' : 'OpenAI'} Chat Model + Memory to AI Agent`,
+      addedMemory
+        ? `Attached ${chatModelConfigForProvider(p).label} + Memory to AI Agent`
+        : `Attached ${chatModelConfigForProvider(p).label} to AI Agent`,
     );
+  }
+
+  /** True when AI Agent has Window Buffer Memory wired. */
+  hasMemoryAttached(): boolean {
+    const agent = this.nodes().find((n) => n.type === 'ai_agent');
+    if (!agent) return false;
+    return this.getAgentAttachmentStatus(agent.id).memory;
   }
 
   validateWorkflowForRun(): string[] {
@@ -257,7 +288,8 @@ export class WorkflowEditorStore {
 
     const agent = this.nodes().find((n) => n.type === 'ai_agent');
     if (agent) {
-      this.attachAgentDefaults(agent.id);
+      // Chat Model hi auto-attach — Memory user delete kare to wapas mat lao
+      this.attachAgentDefaults(agent.id, { includeMemory: false });
     }
     this.applyDefaultProviderToChatModels();
 
@@ -270,6 +302,379 @@ export class WorkflowEditorStore {
     if (this.executionMode() === 'N8N') {
       this.executionMode.set('LOCAL');
     }
+  }
+
+  /**
+   * n8n-style: Chat → AI Agent (main).
+   * Google Sheets + Email → Agent Tool port (config). Agent calls tools itself.
+   */
+  ensureAgentCentricFlow(): void {
+    const nodes = this.nodes();
+    const chat = nodes.find((n) => n.type === 'chat_trigger');
+    const agent = nodes.find((n) => n.type === 'ai_agent');
+    const sheets = nodes.filter((n) => n.type === 'google_sheets');
+    const emails = nodes.filter((n) => n.type === 'email');
+    if (!chat || !agent) return;
+
+    for (const s of sheets) {
+      this.nodes.update((list) =>
+        list.map((n) =>
+          n.id === s.id
+            ? {
+                ...n,
+                data: {
+                  ...n.data,
+                  requireAgent: 'false',
+                  requireChatIntent: 'false',
+                  toolDescription:
+                    n.data['toolDescription'] ??
+                    'Use when user asks to read/update/append/delete Google Sheet rows',
+                },
+              }
+            : n,
+        ),
+      );
+    }
+    for (const e of emails) {
+      this.nodes.update((list) =>
+        list.map((n) => {
+          if (n.id !== e.id) return n;
+          const body = String(n.data['body'] ?? '');
+          const to = String(n.data['to'] ?? '');
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              body:
+                !body.trim() || body.trim() === 'Hello!'
+                  ? '{{emailNotifyBody}}'
+                  : body,
+              subject:
+                !String(n.data['subject'] ?? '').trim() ||
+                String(n.data['subject']) === 'Notification'
+                  ? '{{emailSubject}}'
+                  : n.data['subject'],
+              to: to === '{{email}}' ? '' : to,
+            },
+          };
+        }),
+      );
+    }
+
+    // Keep non-tool config (model/memory); drop old tool links we'll recreate
+    const baseConfig = this.connections().filter(
+      (c) =>
+        c.kind === 'config' &&
+        !(
+          c.to === agent.id &&
+          c.targetPort === 'tool' &&
+          (sheets.some((s) => s.id === c.from) ||
+            emails.some((e) => e.id === c.from))
+        ),
+    );
+
+    const toolConns: WorkflowConnection[] = [
+      ...sheets.map((s) => ({
+        from: s.id,
+        to: agent.id,
+        kind: 'config' as const,
+        targetPort: 'tool',
+      })),
+      ...emails.map((e) => ({
+        from: e.id,
+        to: agent.id,
+        kind: 'config' as const,
+        targetPort: 'tool',
+      })),
+    ];
+
+    // Main: only Chat → Agent (tools are NOT in main chain — n8n style)
+    const flowChain: WorkflowConnection[] = [
+      { from: chat.id, to: agent.id, output: 'main', kind: 'flow' },
+    ];
+
+    // Remove main-flow wires into/out of sheets/email (they become tools)
+    const toolIds = new Set([
+      ...sheets.map((s) => s.id),
+      ...emails.map((e) => e.id),
+    ]);
+    const otherFlow = this.connections().filter(
+      (c) =>
+        c.kind !== 'config' &&
+        !toolIds.has(c.from) &&
+        !toolIds.has(c.to) &&
+        !(c.from === chat.id && c.to === agent.id),
+    );
+
+    this.connections.set([
+      ...baseConfig,
+      ...toolConns,
+      ...flowChain,
+      ...otherFlow,
+    ]);
+  }
+
+  /**
+   * Chat panel conversation requires an AI Agent.
+   * If Chat → Sheets is wired directly, insert Agent in between and fix wires.
+   */
+  ensureConversationAgent(): void {
+    const nodes = this.nodes();
+    const chat = nodes.find((n) => n.type === 'chat_trigger');
+    if (!chat) return;
+
+    let agent = nodes.find((n) => n.type === 'ai_agent');
+    if (!agent) {
+      agent = createNodeFromDefinition(
+        NODE_CATALOG.find((n) => n.type === 'ai_agent')!,
+        {
+          x: snapToGrid(chat.position.x + NODE_WIDTH + NODE_HORIZONTAL_GAP),
+          y: snapToGrid(chat.position.y - 20),
+        },
+      );
+      this.nodes.update((list) => [...list, agent!]);
+      this.message.set('AI Agent added — chat will reply too');
+      // New agent: attach model + memory (first time only)
+      this.attachAgentDefaults(agent.id, { includeMemory: true });
+    } else {
+      // Existing agent: fill missing model; do not re-add deleted memory
+      this.attachAgentDefaults(agent.id, { includeMemory: false });
+    }
+
+    const conns = this.connections();
+    const chatToAgent = conns.some(
+      (c) => c.from === chat.id && c.to === agent!.id && c.kind !== 'config',
+    );
+    if (!chatToAgent) {
+      // Move actions previously attached to Chat to after the Agent
+      const fromChat = conns.filter(
+        (c) => c.from === chat.id && c.kind !== 'config' && c.to !== agent!.id,
+      );
+      this.connections.update((list) => {
+        let next = list.filter(
+          (c) =>
+            !(c.from === chat.id && c.kind !== 'config' && c.to !== agent!.id),
+        );
+        next = [
+          ...next.filter(
+            (c) =>
+              !(
+                c.from === chat.id &&
+                c.to === agent!.id &&
+                c.kind !== 'config'
+              ),
+          ),
+          {
+            from: chat.id,
+            to: agent!.id,
+            output: 'main',
+            kind: 'flow' as const,
+          },
+        ];
+        for (const c of fromChat) {
+          next.push({
+            from: agent!.id,
+            to: c.to,
+            output: c.output ?? 'main',
+            kind: 'flow',
+          });
+        }
+        return next;
+      });
+    }
+  }
+
+  /**
+   * Natural language → canvas build.
+   * Returns assistant reply when it handled a "build connection" request; else null.
+   */
+  tryBuildFlowFromChat(message: string): string | null {
+    const text = message.trim();
+    if (!text) return null;
+
+    const wantsBuild =
+      /\b(connection|connections|workflow|flow|pipeline)\b/i.test(text) &&
+      /\b(bana|banao|bana\s*do|bana\s*ke|create|build|wire|connect|laga|lagao)\b/i.test(
+        text,
+      );
+    const wantsPromptFlow =
+      /\bprompt\b/i.test(text) &&
+      /\b(sheet|excel|email|mail)\b/i.test(text) &&
+      /\b(bana|banao|update|chale|jaen|jaye|ho)\b/i.test(text);
+    const wantsSheetEmail =
+      /\b(sheet|excel)\b/i.test(text) &&
+      /\b(email|mail|e-mail)\b/i.test(text) &&
+      /\b(bana|banao|connect|flow|workflow|chale|jae|jaye)\b/i.test(text);
+
+    if (!wantsBuild && !wantsPromptFlow && !wantsSheetEmail) return null;
+
+    const wantsSheet = /\b(sheet|excel|spreadsheet|google\s*sheet)\b/i.test(text);
+    const wantsEmail = /\b(email|e-mail|\bmail\b)\b/i.test(text);
+    const wantsSlack = /\bslack\b/i.test(text);
+    const wantsHttp = /\b(http|api|webhook)\b/i.test(text);
+
+    const flowTypes: string[] = ['chat_trigger', 'ai_agent'];
+    if (wantsSheet) flowTypes.push('google_sheets');
+    if (wantsEmail) flowTypes.push('email');
+    if (wantsSlack) flowTypes.push('slack');
+    if (wantsHttp && !wantsSheet) flowTypes.push('http');
+
+    // Default example: prompt → sheet + email
+    if (flowTypes.length === 2 && (wantsPromptFlow || wantsBuild)) {
+      flowTypes.push('google_sheets', 'email');
+    }
+
+    this.applyLinearChatFlow(flowTypes);
+
+    const labels = flowTypes
+      .map((t) => NODE_CATALOG.find((d) => d.type === t)?.label ?? t)
+      .join(' → ');
+
+    return (
+      `Done — I built this connection on the canvas:\n\n` +
+      `${labels}\n\n` +
+      `Next steps:\n` +
+      `1) In the Google Sheets node, set Document + Dry Run=false\n` +
+      `2) In the Email node, fill the "to" address\n` +
+      `3) Then type a prompt in chat — AI will run, and sheet update / email follow that flow.\n\n` +
+      `Need another flow? Say e.g. "Create Chat → AI → Slack".`
+    );
+  }
+
+  /** n8n-style build: Chat → Agent; Sheets/Email on Agent Tool port. */
+  applyLinearChatFlow(flowTypes: string[]): void {
+    this.executionMode.set('LOCAL');
+    const startX = 80;
+    const y = 200;
+    const gap = NODE_WIDTH + NODE_HORIZONTAL_GAP;
+    const newNodes: CanvasNode[] = [];
+    const newConns: WorkflowConnection[] = [];
+    let agentId: string | null = null;
+    let chatId: string | null = null;
+    let x = startX;
+
+    const mainTypes = flowTypes.filter(
+      (t) => t === 'chat_trigger' || t === 'ai_agent',
+    );
+    const toolTypes = flowTypes.filter(
+      (t) => t === 'google_sheets' || t === 'email',
+    );
+
+    for (const type of mainTypes) {
+      const def = NODE_CATALOG.find((d) => d.type === type);
+      if (!def) continue;
+      const node = createNodeFromDefinition(def, {
+        x: snapToGrid(x),
+        y: snapToGrid(y),
+      });
+      if (type === 'chat_trigger') chatId = node.id;
+      if (type === 'ai_agent') {
+        agentId = node.id;
+        node.data = {
+          ...node.data,
+          instructions:
+            'You are an n8n-style Tools Agent. Use google_sheets / send_email tools when the user asks. Never invent Apps Script — call tools. Reply in the user language after tools run.',
+        };
+      }
+      newNodes.push(node);
+      x += gap;
+    }
+
+    if (chatId && agentId) {
+      newConns.push({
+        from: chatId,
+        to: agentId,
+        output: 'main',
+        kind: 'flow',
+      });
+    }
+
+    let toolX = (agentId
+      ? (newNodes.find((n) => n.id === agentId)?.position.x ?? startX)
+      : startX) + 40;
+    const toolY = y + 180;
+    for (const type of toolTypes) {
+      const def = NODE_CATALOG.find((d) => d.type === type);
+      if (!def || !agentId) continue;
+      const node = createNodeFromDefinition(def, {
+        x: snapToGrid(toolX),
+        y: snapToGrid(toolY),
+      });
+      if (type === 'google_sheets') {
+        node.data = {
+          ...node.data,
+          operation: 'append',
+          dryRun: 'false',
+          requireChatIntent: 'false',
+          requireAgent: 'false',
+          lookupColumn: '',
+          lookupValue: '*',
+          matchMode: 'first',
+        };
+      }
+      if (type === 'email') {
+        node.data = {
+          ...node.data,
+          to: '',
+          subject: '{{emailSubject}}',
+          body: '{{emailNotifyBody}}',
+        };
+      }
+      newNodes.push(node);
+      newConns.push({
+        from: node.id,
+        to: agentId,
+        kind: 'config',
+        targetPort: 'tool',
+      });
+      toolX += gap * 0.85;
+    }
+
+    if (agentId) {
+      const agent = newNodes.find((n) => n.id === agentId)!;
+      const model = this.createChatModelNode({
+        x: snapToGrid(agent.position.x + 40),
+        y: snapToGrid(agent.position.y + 160),
+      });
+      const memory = createNodeFromDefinition(
+        NODE_CATALOG.find((n) => n.type === 'memory')!,
+        {
+          x: snapToGrid(agent.position.x + 140),
+          y: snapToGrid(agent.position.y + 160),
+        },
+      );
+      // Place model/memory left of tools if tools occupy bottom
+      model.position = {
+        x: snapToGrid(agent.position.x - 20),
+        y: snapToGrid(agent.position.y + 160),
+      };
+      memory.position = {
+        x: snapToGrid(agent.position.x + 80),
+        y: snapToGrid(agent.position.y + 160),
+      };
+      newNodes.push(model, memory);
+      newConns.push(
+        {
+          from: model.id,
+          to: agentId,
+          kind: 'config',
+          targetPort: 'chatModel',
+        },
+        {
+          from: memory.id,
+          to: agentId,
+          kind: 'config',
+          targetPort: 'memory',
+        },
+      );
+    }
+
+    this.nodes.set(newNodes);
+    this.connections.set(newConns);
+    this.workflowName.set('n8n Tools Agent flow');
+    this.description.set('Chat → AI Agent; Sheets/Email as Agent tools');
+    this.selectedNodeId.set(agentId);
+    this.applyDefaultProviderToChatModels();
   }
 
   setDefaultAiProvider(provider: AiProviderChoice): void {
@@ -305,6 +710,71 @@ export class WorkflowEditorStore {
       ...list,
       { id: crypto.randomUUID(), role, text },
     ]);
+  }
+
+  clearNodeRunStatuses(): void {
+    this.nodeRunStatus.set({});
+    this.nodeRunError.set({});
+  }
+
+  setNodeRunStatus(
+    nodeId: string,
+    status: 'idle' | 'running' | 'success' | 'error',
+    error?: string,
+  ): void {
+    this.nodeRunStatus.update((m) => ({ ...m, [nodeId]: status }));
+    if (status === 'error' && error) {
+      this.nodeRunError.update((m) => ({ ...m, [nodeId]: error }));
+    }
+  }
+
+  /** Wire selected / given node onto AI Agent Tool port (n8n-style). */
+  attachNodeAsAgentTool(nodeId?: string): string | null {
+    const id = nodeId ?? this.selectedNodeId();
+    const node = this.nodes().find((n) => n.id === id);
+    const agent = this.nodes().find((n) => n.type === 'ai_agent');
+    if (!node || !agent) {
+      return 'Add an AI Agent to the canvas first, then select Sheets/Email and click Attach';
+    }
+    if (
+      !['google_sheets', 'email', 'slack', 'http', 'telegram'].includes(
+        node.type,
+      )
+    ) {
+      return 'This node cannot be attached as a Tool';
+    }
+    this.addConfigConnection(node.id, agent.id, 'tool');
+    // Remove main-chain wires into/out of this tool node
+    this.connections.update((list) =>
+      list.filter(
+        (c) =>
+          !(
+            c.kind !== 'config' &&
+            (c.from === node.id || c.to === node.id)
+          ),
+      ),
+    );
+    this.message.set(`${node.label} → AI Agent Tool connected ✓`);
+    return null;
+  }
+
+  /** Start a fresh chat session (clears UI + new memory session key). */
+  newChatSession(): void {
+    this.chatMessages.set([]);
+    this.chatInput.set('');
+    this.chatSessionId.set(crypto.randomUUID());
+    this.message.set('New chat — memory cleared for this session');
+    this.error.set(null);
+  }
+
+  /** History for the AI agent (user/assistant turns only). */
+  chatHistoryForAgent(): Array<{ role: 'user' | 'assistant'; content: string }> {
+    return this.chatMessages()
+      .filter((m) => m.role === 'user' || m.role === 'assistant')
+      .map((m) => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.text,
+      }));
   }
 
   private computeAutoConnections(): WorkflowConnection[] {
@@ -454,9 +924,26 @@ export class WorkflowEditorStore {
     if (from === to) return;
 
     this.connections.update((list) => {
-      const filtered = list.filter(
-        (c) => !(c.kind === 'config' && c.to === to && c.targetPort === targetPort),
-      );
+      // n8n: multiple Tools allowed on tool port; chatModel/memory stay single
+      const filtered =
+        targetPort === 'tool'
+          ? list.filter(
+              (c) =>
+                !(
+                  c.kind === 'config' &&
+                  c.from === from &&
+                  c.to === to &&
+                  c.targetPort === targetPort
+                ),
+            )
+          : list.filter(
+              (c) =>
+                !(
+                  c.kind === 'config' &&
+                  c.to === to &&
+                  c.targetPort === targetPort
+                ),
+            );
       return [...filtered, { from, to, kind: 'config', targetPort }];
     });
   }

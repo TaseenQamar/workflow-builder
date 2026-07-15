@@ -19,6 +19,7 @@ export type NodeType =
   | 'n8n'
   | 'schedule'
   | 'spreadsheet'
+  | 'google_sheets'
   | 'facebook'
   | 'instagram'
   | 'linkedin'
@@ -135,10 +136,44 @@ export interface ExecutionStats {
   successRate: string;
 }
 
+export interface AiProviderStatus {
+  configured: boolean;
+  source: string;
+  maskedKey?: string;
+  baseUrl?: string;
+  defaultModel?: string;
+  free?: boolean;
+  label?: string;
+}
+
+export interface LlmProviderPresetDto {
+  id: string;
+  label: string;
+  kind?: string;
+  free: boolean;
+  needsKey: boolean;
+  defaultBaseUrl: string;
+  defaultModel: string;
+  models: string[];
+  hint: string;
+}
+
 export interface AiIntegrationStatus {
-  openai: { configured: boolean; source: string; maskedKey?: string };
-  gemini: { configured: boolean; source: string; maskedKey?: string };
-  defaultProvider?: 'openai' | 'gemini';
+  openai: AiProviderStatus;
+  gemini: AiProviderStatus;
+  groq?: AiProviderStatus;
+  openrouter?: AiProviderStatus;
+  ollama?: AiProviderStatus;
+  custom?: AiProviderStatus;
+  providers?: Record<string, AiProviderStatus>;
+  presets?: LlmProviderPresetDto[];
+  defaultProvider?:
+    | 'openai'
+    | 'gemini'
+    | 'groq'
+    | 'openrouter'
+    | 'ollama'
+    | 'custom';
   demoMode: boolean;
   message: string;
 }
