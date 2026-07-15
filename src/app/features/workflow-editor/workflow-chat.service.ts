@@ -219,10 +219,10 @@ export class WorkflowChatService {
         parts.push(`[Email skipped] ${String(email['reason'] ?? 'no recipient')}`);
       } else if (email['demoMode'] === true || email['provider'] === 'demo') {
         parts.push(
-          `[Email DEMO — inbox me nahi gayi]\n` +
+          `[Email DEMO — not delivered to inbox]\n` +
             String(
               email['hint'] ??
-                'Backend .env me SMTP_USER + SMTP_PASS (Gmail App Password) set karke server restart karo.',
+                'Set SMTP_USER + SMTP_PASS (Gmail App Password) in backend .env, then restart the server.',
             ),
         );
       } else if (email['sent'] === true || email['ok'] === true) {
