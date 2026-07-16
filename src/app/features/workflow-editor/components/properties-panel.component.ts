@@ -21,7 +21,7 @@ import {
   imports: [FormsModule, RouterLink],
   template: `
     <div class="flex h-full flex-col">
-      <p class="text-xs font-medium uppercase tracking-wider text-[#9A9A9A]">
+      <p class="hidden text-xs font-medium uppercase tracking-wider text-[#9A9A9A] lg:block">
         Properties
       </p>
 

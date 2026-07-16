@@ -1,6 +1,7 @@
 import {
   Component,
   HostListener,
+  effect,
   inject,
   OnInit,
   signal,
@@ -38,12 +39,25 @@ export class WorkflowEditor implements OnInit {
   protected readonly store = inject(WorkflowEditorStore);
   private readonly chat = inject(WorkflowChatService);
 
+  private readonly isDesktop = signal(
+    typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
+  );
   protected readonly showPalette = signal(
     typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
   );
   protected readonly showProps = signal(
     typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
   );
+
+  constructor() {
+    // Mobile: open right settings drawer when a node is selected.
+    effect(() => {
+      const nodeId = this.store.selectedNodeId();
+      if (this.isDesktop() || !nodeId) return;
+      this.showProps.set(true);
+      this.showPalette.set(false);
+    });
+  }
 
   ngOnInit(): void {
     this.syncPanelVisibility();
@@ -109,7 +123,7 @@ export class WorkflowEditor implements OnInit {
   @HostListener('document:keydown.escape')
   onEscape(): void {
     this.store.connectSourceId.set(null);
-    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+    if (!this.isDesktop()) {
       this.closePanels();
     }
   }
@@ -117,10 +131,15 @@ export class WorkflowEditor implements OnInit {
   private syncPanelVisibility(): void {
     if (typeof window === 'undefined') return;
     const desktop = window.innerWidth >= 1024;
+    const wasDesktop = this.isDesktop();
+    this.isDesktop.set(desktop);
     if (desktop) {
       this.showPalette.set(true);
       this.showProps.set(true);
-    } else {
+      return;
+    }
+    // Only force-close when crossing desktop → mobile (keep open across small resizes).
+    if (wasDesktop) {
       this.showPalette.set(false);
       this.showProps.set(false);
     }
@@ -138,11 +157,19 @@ export class WorkflowEditor implements OnInit {
     if (next) this.showPalette.set(false);
   }
 
-  protected closePanels(): void {
-    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
-      this.showPalette.set(false);
-      this.showProps.set(false);
+  /** Close right settings drawer on mobile (keeps canvas free). */
+  protected closeProps(): void {
+    this.showProps.set(false);
+    if (!this.isDesktop()) {
+      this.store.selectNode(null);
     }
+  }
+
+  protected closePanels(): void {
+    if (this.isDesktop()) return;
+    this.showPalette.set(false);
+    this.showProps.set(false);
+    this.store.selectNode(null);
   }
 
   protected save(): void {
