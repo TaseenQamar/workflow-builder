@@ -346,6 +346,97 @@
       </div>
     </section>
 
+    <section class="mb-10 max-w-2xl">
+      <h2 class="text-lg font-medium text-[#1A1A1A]">Slack (platform)</h2>
+      <p class="mt-1 text-sm text-[#757575]">
+        One shared Slack bot for the app. Workflow Slack nodes only set
+        <strong>channel</strong> + <strong>message</strong> — no token on the node.
+      </p>
+      @if (slackStatus().configured) {
+        <p class="mt-2 text-sm text-emerald-700">
+          ✓ Ready — default {{ slackStatus().defaultChannel }}
+          @if (slackStatus().maskedToken) {
+            <span class="text-[#757575]"> ({{ slackStatus().maskedToken }})</span>
+          }
+        </p>
+      } @else {
+        <p class="mt-2 text-sm text-amber-700">{{ slackStatus().message || 'Not configured' }}</p>
+      }
+
+      <ol class="mt-3 list-decimal space-y-1 pl-5 text-xs text-[#757575]">
+        <li>
+          <a class="text-[#2BBFBA] underline" href="https://api.slack.com/apps" target="_blank" rel="noopener"
+            >api.slack.com/apps</a
+          >
+          → Create App → From scratch
+        </li>
+        <li>OAuth &amp; Permissions → Bot Token Scopes → add <code>chat:write</code></li>
+        <li>Install to Workspace → copy <strong>Bot User OAuth Token</strong> (<code>xoxb-…</code>)</li>
+        <li>In Slack, invite the bot to your channel: <code>/invite @YourBot</code></li>
+      </ol>
+
+      <div class="mt-3 space-y-3">
+        <div>
+          <label class="block text-xs text-[#757575]">Bot User OAuth Token (xoxb-…)</label>
+          <input
+            type="text"
+            autocomplete="off"
+            spellcheck="false"
+            name="slack-bot-token"
+            class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-[#F5FBFA] px-3 py-2 font-mono text-sm outline-none focus:border-[#2BBFBA]"
+            [(ngModel)]="slackBotToken"
+            placeholder="xoxb-… paste full token here"
+          />
+          <p class="mt-1 text-[11px] text-[#9A9A9A]">
+            Paste the full token, then click <strong>Save Slack</strong> (required).
+            Placeholder dots alone do not count as a saved token.
+            @if (slackBotToken.trim()) {
+              <span class="text-emerald-700"> · {{ slackBotToken.trim().length }} chars ready to save</span>
+            }
+          </p>
+        </div>
+        <div>
+          <label class="block text-xs text-[#757575]">Default channel</label>
+          <input
+            class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-[#F5FBFA] px-3 py-2 text-sm outline-none focus:border-[#2BBFBA]"
+            [(ngModel)]="slackDefaultChannel"
+            placeholder="#general"
+          />
+        </div>
+      </div>
+
+      @if (slackLocalError()) {
+        <p class="mt-2 text-sm text-red-600">{{ slackLocalError() }}</p>
+      }
+      @if (slackLocalOk()) {
+        <p class="mt-2 text-sm text-emerald-700">{{ slackLocalOk() }}</p>
+      }
+
+      <div class="mt-4 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          class="rounded-lg bg-[#2BBFBA] px-4 py-2 text-sm font-medium text-white hover:bg-[#1FA8A3] disabled:opacity-50"
+          [disabled]="savingSlack"
+          (click)="saveSlackCredentials()"
+        >
+          {{ savingSlack ? 'Saving…' : 'Save Slack' }}
+        </button>
+        <input
+          class="min-w-[140px] flex-1 rounded-lg border border-[#CDDBD9] bg-[#F5FBFA] px-3 py-2 text-sm outline-none focus:border-[#2BBFBA]"
+          [(ngModel)]="slackTestChannel"
+          placeholder="#general"
+        />
+        <button
+          type="button"
+          class="rounded-lg border border-[#CDDBD9] px-3 py-2 text-sm text-[#1A1A1A] hover:bg-[#F5FBFA] disabled:opacity-50"
+          [disabled]="testingSlack"
+          (click)="testPlatformSlack()"
+        >
+          {{ testingSlack ? 'Sending…' : 'Send test' }}
+        </button>
+      </div>
+    </section>
+
     <section class="mb-10">
       <h2 class="text-lg font-medium text-[#1A1A1A]">Connections</h2>
       <div class="mt-4 grid gap-4 sm:grid-cols-2">

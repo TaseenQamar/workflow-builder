@@ -74,6 +74,27 @@ export class Settings implements OnInit {
     source: 'none',
     message: '',
   });
+
+  protected slackBotToken = '';
+  protected slackDefaultChannel = '#general';
+  protected slackTestChannel = '#general';
+  protected savingSlack = false;
+  protected testingSlack = false;
+  protected readonly slackLocalError = signal<string | null>(null);
+  protected readonly slackLocalOk = signal<string | null>(null);
+  protected readonly slackStatus = signal<{
+    configured: boolean;
+    defaultChannel: string | null;
+    source: string;
+    message: string;
+    maskedToken?: string;
+  }>({
+    configured: false,
+    defaultChannel: null,
+    source: 'none',
+    message: '',
+  });
+
   protected savingEndpoint = false;
   protected savingProvider = false;
   protected saveMessage = signal<string | null>(null);
@@ -104,6 +125,13 @@ export class Settings implements OnInit {
       this.emailStatus.set(s);
       if (s.mode) this.emailMode = s.mode;
       if (s.fromEmail) this.emailFrom = s.fromEmail;
+    });
+    this.api.getSlackStatus().subscribe((s) => {
+      this.slackStatus.set(s);
+      if (s.defaultChannel) {
+        this.slackDefaultChannel = s.defaultChannel;
+        this.slackTestChannel = s.defaultChannel;
+      }
     });
     this.api.getAiIntegrationStatus().subscribe((s) => {
       const offlineFallback =
@@ -323,5 +351,92 @@ export class Settings implements OnInit {
         this.saveError.set(err?.error?.message ?? 'Test failed');
       },
     });
+  }
+
+  protected saveSlackCredentials(): void {
+    const botToken = this.slackBotToken.trim();
+    this.slackLocalError.set(null);
+    this.slackLocalOk.set(null);
+    if (!botToken) {
+      this.slackLocalError.set(
+        'Token field is empty — paste the full xoxb-… Bot User OAuth Token, then Save Slack.',
+      );
+      this.saveError.set('Paste the Slack Bot User OAuth Token (xoxb-…)');
+      return;
+    }
+    if (!botToken.startsWith('xoxb-')) {
+      this.slackLocalError.set(
+        'Token must start with xoxb- (Bot User OAuth Token). User tokens (xoxp-) will not work.',
+      );
+      return;
+    }
+    this.savingSlack = true;
+    this.saveMessage.set(null);
+    this.saveError.set(null);
+    this.api
+      .saveSlackCredentials({
+        botToken,
+        defaultChannel: this.slackDefaultChannel.trim() || '#general',
+      })
+      .pipe(
+        catchError((err) => {
+          const raw = err?.error?.message;
+          const msg = Array.isArray(raw)
+            ? raw.join(', ')
+            : raw || err?.message || 'Save failed — is the backend online?';
+          return of({ saved: false, message: String(msg) });
+        }),
+      )
+      .subscribe({
+        next: (res) => {
+          this.savingSlack = false;
+          if (res.saved) {
+            this.slackBotToken = '';
+            this.slackLocalOk.set(
+              res.message ?? 'Slack saved — click Send test next.',
+            );
+            this.saveMessage.set(res.message ?? 'Slack saved');
+            this.refreshStatus();
+          } else {
+            this.slackLocalError.set(res.message ?? 'Failed to save Slack');
+            this.saveError.set(res.message ?? 'Failed to save Slack');
+          }
+        },
+      });
+  }
+
+  protected testPlatformSlack(): void {
+    this.testingSlack = true;
+    this.saveMessage.set(null);
+    this.saveError.set(null);
+    this.slackLocalError.set(null);
+    this.slackLocalOk.set(null);
+    if (!this.slackStatus().configured) {
+      this.testingSlack = false;
+      this.slackLocalError.set(
+        'Save Slack first (paste xoxb- token → Save Slack), then Send test.',
+      );
+      return;
+    }
+    this.api
+      .testPlatformSlack(this.slackTestChannel.trim() || undefined)
+      .subscribe({
+        next: (res) => {
+          this.testingSlack = false;
+          if (res.ok) {
+            this.slackLocalOk.set(res.message ?? 'Slack test posted');
+            this.saveMessage.set(res.message ?? 'Slack test posted');
+          } else {
+            this.slackLocalError.set(res.message ?? 'Slack test failed');
+            this.saveError.set(res.message ?? 'Slack test failed');
+          }
+        },
+        error: (err) => {
+          this.testingSlack = false;
+          const msg = err?.error?.message ?? 'Test failed';
+          this.slackLocalError.set(msg);
+          this.saveError.set(msg);
+        },
+      });
   }
 }

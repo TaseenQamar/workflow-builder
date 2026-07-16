@@ -296,6 +296,20 @@ import {
             </div>
           }
 
+          @if (store.selectedNode()!.type === 'slack') {
+            <div class="rounded-lg border border-pink-200 bg-pink-50 p-3 text-xs text-[#4A4A4A]">
+              <p class="font-medium text-[#1A1A1A]">Slack channel message</p>
+              <p class="mt-1">
+                Bot token: <strong>Settings → Slack</strong>. Here set channel + optional fixed Message.
+              </p>
+              <ul class="mt-1 list-disc space-y-0.5 pl-4 text-[11px] text-[#575757]">
+                <li><strong>Message box filled</strong> → that exact text is posted (save workflow / keep node selected so it sticks).</li>
+                <li><strong>Message box empty</strong> → auto sheet summary, or text from chat (e.g. <code>slack: Hello team</code>).</li>
+                <li>Chat only: <code>Slack pe bhejo: your one-line text</code></li>
+              </ul>
+            </div>
+          }
+
           @if (store.selectedNode()!.type === 'google_sheets') {
             <div class="space-y-3 rounded-lg border border-green-300 bg-green-50 p-3 text-xs text-[#4A4A4A]">
               <p class="font-semibold text-green-800">Google Sheets (this workflow)</p>
@@ -1418,8 +1432,18 @@ export class PropertiesPanelComponent implements OnInit {
         ];
       case 'slack':
         return [
-          { key: 'channel', label: 'Channel', value: String(d['channel'] ?? ''), type: 'text' },
-          { key: 'message', label: 'Message', value: String(d['message'] ?? ''), type: 'textarea' },
+          {
+            key: 'channel',
+            label: 'Channel (#name or ID)',
+            value: String(d['channel'] ?? '#general'),
+            type: 'text',
+          },
+          {
+            key: 'message',
+            label: 'Message (blank = auto sheet summary)',
+            value: String(d['message'] ?? ''),
+            type: 'textarea',
+          },
         ];
       case 'condition':
         return [

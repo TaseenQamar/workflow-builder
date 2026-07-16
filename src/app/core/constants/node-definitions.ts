@@ -112,7 +112,7 @@ export const NODE_CATALOG: NodeDefinition[] = [
     category: 'Actions',
     defaultData: {
       channel: '#general',
-      message: 'New row added: {{aiResponse}}',
+      message: '{{slackNotifyBody}}',
     },
   },
   {
@@ -263,7 +263,7 @@ export const NODE_CATALOG: NodeDefinition[] = [
     defaultData: {
       agentType: 'tools',
       instructions:
-        'You are an n8n-style Tools Agent. For hi/hello/thanks/small talk: reply only — do NOT call tools. Call google_sheets / send_email only when the user clearly asks in this message. After a successful sheet write, also send email. Never invent Apps Script. Reply in the user\'s language.',
+        'You are the Cluster Valley AI guide for this workflow. Always reply in the user\'s language. Explain the full Chat→Agent→Tools flow when asked. For hi/hello/thanks/small talk: reply only — do NOT call tools. Call google_sheets / send_email / send_slack only when the user clearly asks in this message. After a successful sheet write, also notify email/Slack if attached. Never invent Apps Script.',
       outputKey: 'aiResponse',
     },
   },

@@ -503,6 +503,91 @@ export class ApiService {
       );
   }
 
+  getSlackStatus(): Observable<{
+    configured: boolean;
+    defaultChannel: string | null;
+    source: string;
+    message: string;
+    maskedToken?: string;
+  }> {
+    if (!this.base) {
+      return of({
+        configured: false,
+        defaultChannel: null,
+        source: 'none',
+        message: 'Backend API URL not set',
+      });
+    }
+    return this.http
+      .get<{
+        configured: boolean;
+        defaultChannel: string | null;
+        source: string;
+        message: string;
+        maskedToken?: string;
+      }>(`${this.base}/integrations/status/slack`)
+      .pipe(
+        catchError(() =>
+          of({
+            configured: false,
+            defaultChannel: null,
+            source: 'none',
+            message: 'Cannot reach backend',
+          }),
+        ),
+      );
+  }
+
+  saveSlackCredentials(body: {
+    botToken: string;
+    defaultChannel?: string;
+  }): Observable<{
+    saved: boolean;
+    defaultChannel?: string;
+    message?: string;
+  }> {
+    if (!this.base) {
+      return of({ saved: false, message: 'Backend API URL not set' });
+    }
+    return this.http
+      .post<{
+        saved: boolean;
+        defaultChannel?: string;
+        message?: string;
+      }>(`${this.base}/integrations/slack/credentials`, body)
+      .pipe(
+        catchError((err) => {
+          const raw = err?.error?.message;
+          const message = Array.isArray(raw)
+            ? raw.join(', ')
+            : raw || 'Save failed';
+          return of({ saved: false, message: String(message) });
+        }),
+      );
+  }
+
+  testPlatformSlack(
+    channel?: string,
+    message?: string,
+  ): Observable<{ ok: boolean; message?: string; sent?: boolean }> {
+    if (!this.base) {
+      return of({ ok: false, message: 'Backend API URL not set' });
+    }
+    return this.http
+      .post<{ ok: boolean; message?: string; sent?: boolean }>(
+        `${this.base}/integrations/slack/test`,
+        { channel, message },
+      )
+      .pipe(
+        catchError((err) =>
+          of({
+            ok: false,
+            message: err?.error?.message ?? 'Slack test failed',
+          }),
+        ),
+      );
+  }
+
   listGoogleSheetTabs(spreadsheetId: string): Observable<{
     ok: boolean;
     sheets: { title: string; sheetId: number }[];

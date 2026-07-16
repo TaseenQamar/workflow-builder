@@ -81,6 +81,8 @@ export class WorkflowChatService {
       name: 'User',
       sessionId: this.store.chatSessionId(),
       _chatHistory: priorHistory,
+      workflowName: this.store.workflowName(),
+      workflowDescription: this.store.description(),
     };
 
     void this.api
@@ -231,6 +233,23 @@ export class WorkflowChatService {
         );
       } else if (email['error']) {
         parts.push(`[Email failed] ${String(email['error'])}`);
+      }
+    }
+
+    const slack = output['slack'] as Record<string, unknown> | undefined;
+    if (slack) {
+      if (slack['demoMode'] === true || slack['provider'] === 'demo') {
+        parts.push(
+          `[Slack DEMO — not posted]\n` +
+            String(
+              slack['hint'] ??
+                'Settings → Slack → paste Bot Token (xoxb-…) and invite the bot to the channel.',
+            ),
+        );
+      } else if (slack['sent'] === true) {
+        parts.push(`[Slack] posted → ${String(slack['channel'] ?? 'channel')}`);
+      } else if (slack['error']) {
+        parts.push(`[Slack failed] ${String(slack['error'])}`);
       }
     }
 

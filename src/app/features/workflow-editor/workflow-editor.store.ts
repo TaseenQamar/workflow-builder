@@ -314,6 +314,7 @@ export class WorkflowEditorStore {
     const agent = nodes.find((n) => n.type === 'ai_agent');
     const sheets = nodes.filter((n) => n.type === 'google_sheets');
     const emails = nodes.filter((n) => n.type === 'email');
+    const slacks = nodes.filter((n) => n.type === 'slack');
     if (!chat || !agent) return;
 
     for (const s of sheets) {
@@ -360,6 +361,26 @@ export class WorkflowEditorStore {
         }),
       );
     }
+    for (const s of slacks) {
+      this.nodes.update((list) =>
+        list.map((n) => {
+          if (n.id !== s.id) return n;
+          const msg = String(n.data['message'] ?? '');
+          const channel = String(n.data['channel'] ?? '');
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              channel: channel.trim() || '#general',
+              message:
+                !msg.trim() || msg.includes('New row added')
+                  ? '{{slackNotifyBody}}'
+                  : msg,
+            },
+          };
+        }),
+      );
+    }
 
     // Keep non-tool config (model/memory); drop old tool links we'll recreate
     const baseConfig = this.connections().filter(
@@ -369,7 +390,8 @@ export class WorkflowEditorStore {
           c.to === agent.id &&
           c.targetPort === 'tool' &&
           (sheets.some((s) => s.id === c.from) ||
-            emails.some((e) => e.id === c.from))
+            emails.some((e) => e.id === c.from) ||
+            slacks.some((s) => s.id === c.from))
         ),
     );
 
@@ -386,6 +408,12 @@ export class WorkflowEditorStore {
         kind: 'config' as const,
         targetPort: 'tool',
       })),
+      ...slacks.map((s) => ({
+        from: s.id,
+        to: agent.id,
+        kind: 'config' as const,
+        targetPort: 'tool',
+      })),
     ];
 
     // Main: only Chat → Agent (tools are NOT in main chain — n8n style)
@@ -393,10 +421,11 @@ export class WorkflowEditorStore {
       { from: chat.id, to: agent.id, output: 'main', kind: 'flow' },
     ];
 
-    // Remove main-flow wires into/out of sheets/email (they become tools)
+    // Remove main-flow wires into/out of sheets/email/slack (they become tools)
     const toolIds = new Set([
       ...sheets.map((s) => s.id),
       ...emails.map((e) => e.id),
+      ...slacks.map((s) => s.id),
     ]);
     const otherFlow = this.connections().filter(
       (c) =>
@@ -573,7 +602,7 @@ export class WorkflowEditorStore {
         node.data = {
           ...node.data,
           instructions:
-            'You are an n8n-style Tools Agent. For hi/hello/thanks/small talk: reply only — do NOT call tools. Use google_sheets / send_email only when the user clearly asks in this message. After a successful sheet write, also call send_email. Never invent Apps Script. Reply in the user language.',
+            'You are the Cluster Valley AI guide for this workflow. Always reply in the user\'s language. Explain product + this canvas flow when asked. For hi/hello/thanks/small talk: reply only — do NOT call tools. Use google_sheets / send_email / send_slack only when the user clearly asks in this message. After a successful sheet write, also notify email/Slack if attached. Never invent Apps Script.',
         };
       }
       newNodes.push(node);
