@@ -84,7 +84,7 @@ export class BackendStatusService {
       );
     } else if (origin.includes('trycloudflare.com') || origin.includes('loca.lt')) {
       this.lastError.set(
-        'Tunnel offline or URL changed after sleep. Restart tunnel (npm run wake) and update the Backend API URL in Settings.',
+        'Tunnel unreachable from this browser (often local DNS). 1) Open the tunnel /health URL in a new tab — must show status ok. 2) If it fails to load, set Mac DNS to 1.1.1.1 + 8.8.8.8, flush DNS, then re-open Vercel with the NEW ?api= URL from npm run wake (old trycloudflare links die after restart).',
       );
     } else {
       this.lastError.set(

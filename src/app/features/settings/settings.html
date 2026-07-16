@@ -196,43 +196,154 @@
     </section>
 
     <section class="mb-10 max-w-2xl">
-      <h2 class="text-lg font-medium text-[#1A1A1A]">Google Sheets (n8n-style)</h2>
+      <h2 class="text-lg font-medium text-[#1A1A1A]">Outbound Email (platform)</h2>
       <p class="mt-1 text-sm text-[#757575]">
-        Add/update rows on a real Google Sheet — paste Service Account JSON (like n8n credentials).
+        One shared mailer for the whole app. Workflow users only type a
+        <strong>To</strong> address on the Email node — no Gmail password per user.
       </p>
-      @if (googleSheetsStatus().configured) {
+      @if (emailStatus().configured) {
         <p class="mt-2 text-sm text-emerald-700">
-          ✓ Ready — {{ googleSheetsStatus().clientEmail }}
-        </p>
-        <p class="mt-1 text-xs text-[#757575]">
-          Share your sheet → grant this email <strong>Editor</strong>, or writes will fail.
+          ✓ Ready ({{ emailStatus().mode }}) — from {{ emailStatus().fromEmail }}
         </p>
       } @else {
-        <p class="mt-2 text-sm text-amber-700">{{ googleSheetsStatus().message || 'Not configured' }}</p>
+        <p class="mt-2 text-sm text-amber-700">{{ emailStatus().message || 'Not configured' }}</p>
       }
 
-      <ol class="mt-3 list-decimal space-y-1 pl-5 text-xs text-[#757575]">
-        <li>Google Cloud Console → create Service Account → download JSON key</li>
-        <li>Enable <strong>Google Sheets API</strong> for that project</li>
-        <li>Paste JSON below → Save</li>
-        <li>Copy Spreadsheet ID from the sheet URL; note the tab name (e.g. Dec-8-2021)</li>
-        <li>In the workflow, use a <strong>Google Sheets</strong> node → Append</li>
-      </ol>
+      <div class="mt-3 flex gap-2">
+        <button
+          type="button"
+          class="rounded-lg border px-3 py-1.5 text-xs font-medium"
+          [class.border-[#2BBFBA]]="emailMode === 'sendgrid'"
+          [class.bg-[#E8F8F7]]="emailMode === 'sendgrid'"
+          [class.text-[#1A1A1A]]="emailMode === 'sendgrid'"
+          [class.border-[#CDDBD9]]="emailMode !== 'sendgrid'"
+          [class.text-[#757575]]="emailMode !== 'sendgrid'"
+          (click)="emailMode = 'sendgrid'"
+        >
+          SendGrid (recommended)
+        </button>
+        <button
+          type="button"
+          class="rounded-lg border px-3 py-1.5 text-xs font-medium"
+          [class.border-[#2BBFBA]]="emailMode === 'smtp'"
+          [class.bg-[#E8F8F7]]="emailMode === 'smtp'"
+          [class.text-[#1A1A1A]]="emailMode === 'smtp'"
+          [class.border-[#CDDBD9]]="emailMode !== 'smtp'"
+          [class.text-[#757575]]="emailMode !== 'smtp'"
+          (click)="emailMode = 'smtp'"
+        >
+          SMTP
+        </button>
+      </div>
 
-      <textarea
-        class="mt-3 w-full rounded-lg border border-[#CDDBD9] bg-[#F5FBFA] px-3 py-2 font-mono text-xs text-[#1A1A1A] outline-none focus:border-[#2BBFBA]"
-        rows="6"
-        [(ngModel)]="googleSheetsJson"
-        placeholder='{ "type": "service_account", "project_id": "...", "private_key": "-----BEGIN PRIVATE KEY-----\\n...", "client_email": "...@....iam.gserviceaccount.com" }'
-      ></textarea>
-      <button
-        type="button"
-        class="mt-3 rounded-lg bg-[#2BBFBA] px-4 py-2 text-sm font-medium text-white hover:bg-[#1FA8A3] disabled:opacity-50"
-        [disabled]="savingGoogleSheets || !googleSheetsJson.trim()"
-        (click)="saveGoogleSheetsCredentials()"
-      >
-        {{ savingGoogleSheets ? 'Saving…' : 'Save Google Sheets credentials' }}
-      </button>
+      <div class="mt-3 space-y-3">
+        <div>
+          <label class="block text-xs text-[#757575]">From email</label>
+          <input
+            class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-[#F5FBFA] px-3 py-2 text-sm outline-none focus:border-[#2BBFBA]"
+            [(ngModel)]="emailFrom"
+            placeholder="noreply@yourdomain.com"
+          />
+        </div>
+        <div>
+          <label class="block text-xs text-[#757575]">From name</label>
+          <input
+            class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-[#F5FBFA] px-3 py-2 text-sm outline-none focus:border-[#2BBFBA]"
+            [(ngModel)]="emailFromName"
+            placeholder="Cluster Valley"
+          />
+        </div>
+
+        @if (emailMode === 'sendgrid') {
+          <div>
+            <label class="block text-xs text-[#757575]">SendGrid API key</label>
+            <input
+              type="password"
+              class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-[#F5FBFA] px-3 py-2 font-mono text-sm outline-none focus:border-[#2BBFBA]"
+              [(ngModel)]="sendgridApiKey"
+              placeholder="SG...."
+            />
+            <p class="mt-1 text-xs text-[#9A9A9A]">
+              Free tier:
+              <a class="text-[#2BBFBA] underline" href="https://sendgrid.com" target="_blank" rel="noopener">sendgrid.com</a>
+              → create API key.
+              <strong class="text-[#1A1A1A]">Required:</strong>
+              verify the same From email under
+              <a
+                class="text-[#2BBFBA] underline"
+                href="https://app.sendgrid.com/settings/sender_auth"
+                target="_blank"
+                rel="noopener"
+                >Sender Authentication → Single Sender</a
+              >
+              (click the link in SendGrid’s email). Until verified, SendGrid returns 403.
+            </p>
+          </div>
+        } @else {
+          <div class="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label class="block text-xs text-[#757575]">SMTP host</label>
+              <input
+                class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-[#F5FBFA] px-3 py-2 text-sm outline-none focus:border-[#2BBFBA]"
+                [(ngModel)]="smtpHost"
+                placeholder="smtp.gmail.com"
+              />
+            </div>
+            <div>
+              <label class="block text-xs text-[#757575]">Port</label>
+              <input
+                class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-[#F5FBFA] px-3 py-2 text-sm outline-none focus:border-[#2BBFBA]"
+                [(ngModel)]="smtpPort"
+                placeholder="587"
+              />
+            </div>
+            <div>
+              <label class="block text-xs text-[#757575]">SMTP user</label>
+              <input
+                class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-[#F5FBFA] px-3 py-2 text-sm outline-none focus:border-[#2BBFBA]"
+                [(ngModel)]="smtpUser"
+                placeholder="you@gmail.com"
+              />
+            </div>
+            <div>
+              <label class="block text-xs text-[#757575]">SMTP password / app password</label>
+              <input
+                type="password"
+                class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-[#F5FBFA] px-3 py-2 text-sm outline-none focus:border-[#2BBFBA]"
+                [(ngModel)]="smtpPass"
+                placeholder="••••••••"
+              />
+            </div>
+          </div>
+          <p class="text-xs text-[#9A9A9A]">
+            SMTP is for the <strong>server deployer</strong> only — not for each workflow user.
+          </p>
+        }
+      </div>
+
+      <div class="mt-4 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          class="rounded-lg bg-[#2BBFBA] px-4 py-2 text-sm font-medium text-white hover:bg-[#1FA8A3] disabled:opacity-50"
+          [disabled]="savingEmail"
+          (click)="saveEmailCredentials()"
+        >
+          {{ savingEmail ? 'Saving…' : 'Save outbound email' }}
+        </button>
+        <input
+          class="min-w-[200px] flex-1 rounded-lg border border-[#CDDBD9] bg-[#F5FBFA] px-3 py-2 text-sm outline-none focus:border-[#2BBFBA]"
+          [(ngModel)]="emailTestTo"
+          placeholder="test@example.com"
+        />
+        <button
+          type="button"
+          class="rounded-lg border border-[#CDDBD9] px-3 py-2 text-sm text-[#1A1A1A] hover:bg-[#F5FBFA] disabled:opacity-50"
+          [disabled]="testingEmail || !emailTestTo.trim()"
+          (click)="testPlatformEmail()"
+        >
+          {{ testingEmail ? 'Sending…' : 'Send test' }}
+        </button>
+      </div>
     </section>
 
     <section class="mb-10">

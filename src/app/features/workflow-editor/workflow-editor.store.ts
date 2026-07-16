@@ -573,7 +573,7 @@ export class WorkflowEditorStore {
         node.data = {
           ...node.data,
           instructions:
-            'You are an n8n-style Tools Agent. Use google_sheets / send_email tools when the user asks. Never invent Apps Script — call tools. Reply in the user language after tools run.',
+            'You are an n8n-style Tools Agent. For hi/hello/thanks/small talk: reply only — do NOT call tools. Use google_sheets / send_email only when the user clearly asks in this message. After a successful sheet write, also call send_email. Never invent Apps Script. Reply in the user language.',
         };
       }
       newNodes.push(node);

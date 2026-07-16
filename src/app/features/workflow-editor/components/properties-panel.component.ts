@@ -219,7 +219,7 @@ import {
               <p class="mt-1 text-[10px] text-[#4A4A4A]">
                 <strong>Like n8n:</strong> Chat → Agent (main).
                 Connect Google Sheets / Email to the Agent’s bottom <strong>Tool</strong> port.
-                The agent decides when to call tools (sheet update + email).
+                The agent calls Sheets when asked; after a sheet write it also sends Email (tool port).
               </p>
               <ul class="mt-2 space-y-1 text-[#757575]">
                 <li>{{ agentStatus().chatModel ? '✓' : '✗' }} Chat Model (API key in Settings)</li>
@@ -273,9 +273,35 @@ import {
             </div>
           }
 
+          @if (store.selectedNode()!.type === 'email') {
+            <div class="rounded-lg border border-[#CDDBD9] bg-[#F5FBFA] p-3 text-xs text-[#4A4A4A]">
+              <p class="font-medium text-[#1A1A1A]">Recipient only — no Gmail password here</p>
+              <p class="mt-1">
+                Put any email in <strong>To</strong> (recipient). Do not use placeholders like
+                <code>your_email@example.com</code> — use a real inbox.
+                Platform sends From the address in Settings → Outbound Email (must be SendGrid-verified).
+              </p>
+              @if (emailMailerConfigured()) {
+                <p class="mt-2 text-emerald-700">
+                  ✓ Platform mailer ready
+                  @if (emailMailerFrom()) {
+                    <span class="text-[#757575]"> (from {{ emailMailerFrom() }})</span>
+                  }
+                </p>
+              } @else {
+                <p class="mt-2 text-amber-700">
+                  {{ emailMailerMsg() || 'Configure Outbound Email in Settings once for the whole app.' }}
+                </p>
+              }
+            </div>
+          }
+
           @if (store.selectedNode()!.type === 'google_sheets') {
             <div class="space-y-3 rounded-lg border border-green-300 bg-green-50 p-3 text-xs text-[#4A4A4A]">
-              <p class="font-semibold text-green-800">Google Sheets (n8n-style)</p>
+              <p class="font-semibold text-green-800">Google Sheets (this workflow)</p>
+              <p class="text-[10px] text-[#757575]">
+                Credentials + document/tab are set here on the node — not in Settings. Each workflow can use a different sheet.
+              </p>
 
               <!-- 1) Credential -->
               <div class="rounded-lg border border-green-200 bg-white p-2">
@@ -708,6 +734,10 @@ export class PropertiesPanelComponent implements OnInit {
   protected readonly gsExecuteErr = signal<string | null>(null);
   protected executingGs = false;
 
+  protected readonly emailMailerConfigured = signal(false);
+  protected readonly emailMailerFrom = signal<string | null>(null);
+  protected readonly emailMailerMsg = signal<string | null>(null);
+
   private lastGsNodeId: string | null = null;
   private readonly _gsSelectEffect = effect(() => {
     const node = this.store.selectedNode();
@@ -724,6 +754,15 @@ export class PropertiesPanelComponent implements OnInit {
   ngOnInit(): void {
     this.refreshAiStatus();
     this.refreshGoogleSheetsStatus();
+    this.refreshEmailMailerStatus();
+  }
+
+  protected refreshEmailMailerStatus(): void {
+    this.api.getEmailStatus().subscribe((s) => {
+      this.emailMailerConfigured.set(!!s.configured);
+      this.emailMailerFrom.set(s.fromEmail);
+      this.emailMailerMsg.set(s.message);
+    });
   }
 
   protected refreshGoogleSheetsStatus(): void {
@@ -1360,7 +1399,7 @@ export class PropertiesPanelComponent implements OnInit {
         return [
           {
             key: 'to',
-            label: 'To (email address)',
+            label: 'To (any email — notification recipient)',
             value: String(d['to'] ?? ''),
             type: 'text',
           },
@@ -1372,7 +1411,7 @@ export class PropertiesPanelComponent implements OnInit {
           },
           {
             key: 'body',
-            label: 'Body (use {{emailNotifyBody}} for auto sheet+AI text)',
+            label: 'Body (auto: sheet name + link + summary via {{emailNotifyBody}})',
             value: String(d['body'] ?? '{{emailNotifyBody}}'),
             type: 'textarea',
           },

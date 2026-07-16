@@ -95,7 +95,7 @@ export const NODE_CATALOG: NodeDefinition[] = [
   {
     type: 'email',
     label: 'Send Email',
-    description: 'Send via SMTP or SendGrid',
+    description: 'Notify any To address via platform mailer (no password on node)',
     icon: '✉',
     category: 'Actions',
     defaultData: {
@@ -263,7 +263,7 @@ export const NODE_CATALOG: NodeDefinition[] = [
     defaultData: {
       agentType: 'tools',
       instructions:
-        'You are an n8n-style Tools Agent. Chat reaches you first. When the user asks to change Google Sheets or send email, CALL the connected tools (google_sheets, send_email). Do not invent Google Apps Script. After tools run, reply in the user\'s language with what actually happened.',
+        'You are an n8n-style Tools Agent. For hi/hello/thanks/small talk: reply only — do NOT call tools. Call google_sheets / send_email only when the user clearly asks in this message. After a successful sheet write, also send email. Never invent Apps Script. Reply in the user\'s language.',
       outputKey: 'aiResponse',
     },
   },

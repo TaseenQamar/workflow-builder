@@ -415,6 +415,94 @@ export class ApiService {
     }>(`${this.base}/integrations/google-sheets/credentials`, { json });
   }
 
+  getEmailStatus(): Observable<{
+    configured: boolean;
+    mode: 'sendgrid' | 'smtp' | null;
+    fromEmail: string | null;
+    source: string;
+    message: string;
+  }> {
+    if (!this.base) {
+      return of({
+        configured: false,
+        mode: null,
+        fromEmail: null,
+        source: 'none',
+        message: 'Backend API URL not set',
+      });
+    }
+    return this.http
+      .get<{
+        configured: boolean;
+        mode: 'sendgrid' | 'smtp' | null;
+        fromEmail: string | null;
+        source: string;
+        message: string;
+      }>(`${this.base}/integrations/status/email`)
+      .pipe(
+        catchError((err) => {
+          const status = err?.status ?? err?.statusCode;
+          const msg =
+            status === 404
+              ? 'Email API not found — restart backend (npm run start:dev) so Outbound Email routes load'
+              : !err || status === 0
+                ? 'Cannot reach backend — check tunnel/Backend API URL'
+                : `Email status failed (${status ?? 'error'})`;
+          return of({
+            configured: false,
+            mode: null,
+            fromEmail: null,
+            source: 'none',
+            message: msg,
+          });
+        }),
+      );
+  }
+
+  saveEmailCredentials(body: {
+    mode: 'sendgrid' | 'smtp';
+    sendgridApiKey?: string;
+    smtpHost?: string;
+    smtpPort?: number;
+    smtpUser?: string;
+    smtpPass?: string;
+    fromEmail?: string;
+    fromName?: string;
+  }): Observable<{ saved: boolean; mode?: string; fromEmail?: string; message?: string }> {
+    if (!this.base) {
+      return of({ saved: false, message: 'Backend API URL not set' });
+    }
+    return this.http.post<{
+      saved: boolean;
+      mode?: string;
+      fromEmail?: string;
+      message?: string;
+    }>(`${this.base}/integrations/email/credentials`, body);
+  }
+
+  testPlatformEmail(to: string): Observable<{
+    ok: boolean;
+    message?: string;
+    sent?: boolean;
+  }> {
+    if (!this.base) {
+      return of({ ok: false, message: 'Backend API URL not set' });
+    }
+    return this.http
+      .post<{ ok: boolean; message?: string; sent?: boolean }>(
+        `${this.base}/integrations/email/test`,
+        { to },
+      )
+      .pipe(
+        catchError((err) =>
+          of({
+            ok: false,
+            message: err?.error?.message ?? 'Test email failed',
+          }),
+        ),
+      );
+  }
+
   listGoogleSheetTabs(spreadsheetId: string): Observable<{
     ok: boolean;
     sheets: { title: string; sheetId: number }[];

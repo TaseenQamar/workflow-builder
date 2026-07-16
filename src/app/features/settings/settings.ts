@@ -49,13 +49,31 @@ export class Settings implements OnInit {
   protected endpointBaseUrl = '';
   protected endpointModel = '';
   protected backendUrl = '';
-  protected googleSheetsJson = '';
-  protected savingGoogleSheets = false;
-  protected readonly googleSheetsStatus = signal<{
+
+  protected emailMode: 'sendgrid' | 'smtp' = 'sendgrid';
+  protected emailFrom = '';
+  protected emailFromName = 'Cluster Valley';
+  protected sendgridApiKey = '';
+  protected smtpHost = 'smtp.gmail.com';
+  protected smtpPort = '587';
+  protected smtpUser = '';
+  protected smtpPass = '';
+  protected emailTestTo = '';
+  protected savingEmail = false;
+  protected testingEmail = false;
+  protected readonly emailStatus = signal<{
     configured: boolean;
-    clientEmail: string | null;
+    mode: 'sendgrid' | 'smtp' | null;
+    fromEmail: string | null;
+    source: string;
     message: string;
-  }>({ configured: false, clientEmail: null, message: '' });
+  }>({
+    configured: false,
+    mode: null,
+    fromEmail: null,
+    source: 'none',
+    message: '',
+  });
   protected savingEndpoint = false;
   protected savingProvider = false;
   protected saveMessage = signal<string | null>(null);
@@ -82,9 +100,11 @@ export class Settings implements OnInit {
   protected refreshStatus(): void {
     this.backendStatus.refresh();
     this.api.getN8nHealth().subscribe((h) => this.n8nHealth.set(h));
-    this.api.getGoogleSheetsStatus().subscribe((s) =>
-      this.googleSheetsStatus.set(s),
-    );
+    this.api.getEmailStatus().subscribe((s) => {
+      this.emailStatus.set(s);
+      if (s.mode) this.emailMode = s.mode;
+      if (s.fromEmail) this.emailFrom = s.fromEmail;
+    });
     this.api.getAiIntegrationStatus().subscribe((s) => {
       const offlineFallback =
         s.message === 'Backend offline' ||
@@ -237,34 +257,70 @@ export class Settings implements OnInit {
     return provider !== 'gemini';
   }
 
-  protected saveGoogleSheetsCredentials(): void {
-    const json = this.googleSheetsJson.trim();
-    if (!json) {
-      this.saveError.set('Paste the full Google Service Account JSON key');
-      return;
-    }
-    this.savingGoogleSheets = true;
+  protected saveEmailCredentials(): void {
+    this.savingEmail = true;
     this.saveMessage.set(null);
     this.saveError.set(null);
-    this.api.saveGoogleSheetsCredentials(json).subscribe({
+    const body =
+      this.emailMode === 'sendgrid'
+        ? {
+            mode: 'sendgrid' as const,
+            sendgridApiKey: this.sendgridApiKey.trim(),
+            fromEmail: this.emailFrom.trim(),
+            fromName: this.emailFromName.trim() || 'Cluster Valley',
+          }
+        : {
+            mode: 'smtp' as const,
+            smtpHost: this.smtpHost.trim(),
+            smtpPort: Number(this.smtpPort) || 587,
+            smtpUser: this.smtpUser.trim(),
+            smtpPass: this.smtpPass.trim(),
+            fromEmail: this.emailFrom.trim() || this.smtpUser.trim(),
+            fromName: this.emailFromName.trim() || 'Cluster Valley',
+          };
+
+    this.api.saveEmailCredentials(body).subscribe({
       next: (res) => {
-        this.savingGoogleSheets = false;
+        this.savingEmail = false;
         if (res.saved) {
-          this.googleSheetsJson = '';
-          this.saveMessage.set(
-            res.message ??
-              `Google Sheets saved (${res.clientEmail}). Share your sheet with that email.`,
-          );
+          this.sendgridApiKey = '';
+          this.smtpPass = '';
+          this.saveMessage.set(res.message ?? 'Outbound email saved');
           this.refreshStatus();
         } else {
-          this.saveError.set(res.message ?? 'Failed to save Google credentials');
+          this.saveError.set(res.message ?? 'Failed to save email config');
         }
       },
       error: (err) => {
-        this.savingGoogleSheets = false;
+        this.savingEmail = false;
         this.saveError.set(
           err?.error?.message ?? 'Save failed — is the backend running?',
         );
+      },
+    });
+  }
+
+  protected testPlatformEmail(): void {
+    const to = this.emailTestTo.trim();
+    if (!to.includes('@')) {
+      this.saveError.set('Enter a valid test email address');
+      return;
+    }
+    this.testingEmail = true;
+    this.saveMessage.set(null);
+    this.saveError.set(null);
+    this.api.testPlatformEmail(to).subscribe({
+      next: (res) => {
+        this.testingEmail = false;
+        if (res.ok) {
+          this.saveMessage.set(res.message ?? `Test sent to ${to}`);
+        } else {
+          this.saveError.set(res.message ?? 'Test email failed');
+        }
+      },
+      error: (err) => {
+        this.testingEmail = false;
+        this.saveError.set(err?.error?.message ?? 'Test failed');
       },
     });
   }
