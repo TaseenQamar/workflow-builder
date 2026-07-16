@@ -1011,6 +1011,125 @@ export class WorkflowEditorStore {
     ]);
   }
 
+  /**
+   * Daily / timed flow: Schedule → Slack (main wire).
+   * Save + keep workflow Active so backend cron can run it.
+   */
+  insertScheduleSlackTemplate(resetWorkflow = true): void {
+    if (resetWorkflow) {
+      this.reset();
+      this.workflowName.set('Daily Slack Notify');
+      this.description.set(
+        'Schedule trigger → Slack channel message (save + Active for cron)',
+      );
+    }
+    this.executionMode.set('LOCAL');
+    this.active.set(true);
+
+    const schedule = createNodeFromDefinition(
+      NODE_CATALOG.find((n) => n.type === 'schedule')!,
+      { x: 80, y: 200 },
+    );
+    schedule.data = {
+      ...schedule.data,
+      interval: 'daily',
+      hour: 9,
+      minute: 0,
+      timezone: 'Asia/Karachi',
+      cron: '0 9 * * *',
+    };
+
+    const slack = createNodeFromDefinition(
+      NODE_CATALOG.find((n) => n.type === 'slack')!,
+      { x: 80 + NODE_WIDTH + NODE_HORIZONTAL_GAP, y: 200 },
+    );
+    slack.data = {
+      ...slack.data,
+      channel: '#general',
+      message: 'Good morning — scheduled check-in from Cluster Valley AI',
+    };
+
+    this.nodes.set([schedule, slack]);
+    this.connections.set([
+      { from: schedule.id, to: slack.id, output: 'main', kind: 'flow' },
+    ]);
+    this.selectedNodeId.set(schedule.id);
+    this.message.set(
+      'Schedule → Slack ready. Set time + channel, Save, keep Active on.',
+    );
+  }
+
+  /**
+   * Schedule → AI Agent (+ model) for timed agent runs.
+   * Attach Sheets/Email/Slack as tools after if needed.
+   */
+  insertScheduleAgentTemplate(resetWorkflow = true): void {
+    if (resetWorkflow) {
+      this.reset();
+      this.workflowName.set('Scheduled AI Agent');
+      this.description.set(
+        'Schedule → AI Agent; attach Sheets/Email/Slack as tools',
+      );
+    }
+    this.executionMode.set('LOCAL');
+    this.active.set(true);
+
+    const schedule = createNodeFromDefinition(
+      NODE_CATALOG.find((n) => n.type === 'schedule')!,
+      { x: 80, y: 200 },
+    );
+    schedule.data = {
+      ...schedule.data,
+      interval: 'daily',
+      hour: 9,
+      minute: 0,
+      timezone: 'Asia/Karachi',
+      cron: '0 9 * * *',
+    };
+
+    const agent = createNodeFromDefinition(
+      NODE_CATALOG.find((n) => n.type === 'ai_agent')!,
+      { x: 80 + NODE_WIDTH + NODE_HORIZONTAL_GAP, y: 180 },
+    );
+    agent.data = {
+      ...agent.data,
+      systemPrompt:
+        'You were triggered by a Schedule. Summarize any tool results briefly in English.',
+    };
+
+    const model = this.createChatModelNode({
+      x: 80 + NODE_WIDTH + NODE_HORIZONTAL_GAP + 40,
+      y: 180 + 160,
+    });
+
+    this.nodes.set([schedule, agent, model]);
+    this.connections.set([
+      { from: schedule.id, to: agent.id, output: 'main', kind: 'flow' },
+      { from: model.id, to: agent.id, kind: 'config', targetPort: 'chatModel' },
+    ]);
+    this.selectedNodeId.set(schedule.id);
+    this.applyDefaultProviderToChatModels();
+    this.message.set(
+      'Schedule → Agent ready. Attach tools, then Save with Active on.',
+    );
+  }
+
+  /** Keep schedule cron in sync with interval / hour / minute. */
+  syncScheduleCron(nodeId: string): void {
+    const node = this.nodes().find((n) => n.id === nodeId);
+    if (!node || node.type !== 'schedule') return;
+
+    const interval = String(node.data['interval'] ?? 'daily');
+    const hour = Math.min(23, Math.max(0, Number(node.data['hour'] ?? 9)));
+    const minute = Math.min(59, Math.max(0, Number(node.data['minute'] ?? 0)));
+
+    let cron = `${minute} ${hour} * * *`;
+    if (interval === 'hourly') cron = '0 * * * *';
+    if (interval === 'every_minute') cron = '* * * * *';
+
+    this.updateNodeData(nodeId, { hour, minute, cron, interval });
+  }
+
   removeConnection(from: string, to: string, output?: string): void {
     this.connections.update((list) =>
       list.filter(

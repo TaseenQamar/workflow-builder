@@ -48,10 +48,11 @@ export const NODE_CATALOG: NodeDefinition[] = [
   {
     type: 'schedule',
     label: 'Schedule',
-    description: 'Run daily at a set time (e.g. 9:00 AM Karachi)',
+    description: 'Run on a timer (daily / hourly) — wire to Slack, Email, or Agent',
     icon: '⏰',
     category: 'Triggers',
     defaultData: {
+      interval: 'daily',
       hour: 9,
       minute: 0,
       timezone: 'Asia/Karachi',

@@ -191,6 +191,22 @@ After sheet updates, email can include spreadsheet title + link.
 
 Daily notifications: use **Schedule → Slack** (or Schedule → Agent → tools), save the workflow so the scheduler can run it.
 
+### Schedule node structure
+
+```
+Schedule (trigger) ──flow──► Slack
+                     or
+Schedule (trigger) ──flow──► AI Agent
+                                ├─ Chat Model
+                                └─ Tools (Sheets / Email / Slack)
+```
+
+In the editor: select empty canvas Properties → **Schedule → Slack** / **Schedule → AI Agent**, or drop a Schedule node and use **Quick structure** buttons.
+
+Settings on Schedule: Interval (daily / hourly / every minute), hour, minute, timezone, **Workflow Active**. Cron syncs automatically.
+
+**Important — no chat needed:** After **Save**, the backend cron runs the flow at that time by itself (Slack / Email / tools). Use **Run now (no chat)** to test immediately. Chat prompt is not required for Schedule flows.
+
 ---
 
 ## 10. Settings
@@ -247,7 +263,7 @@ npm run wake
 
 ```bash
 cd workflow-builder
-npx ng serve --port 4206
+npx ng serve --port 4200
 ```
 
 ### Env (examples)

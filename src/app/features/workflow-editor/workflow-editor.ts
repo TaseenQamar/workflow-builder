@@ -178,6 +178,11 @@ export class WorkflowEditor implements OnInit {
     this.store.message.set(null);
     this.store.ensureConnections();
 
+    const hasSchedule = this.store.nodes().some((n) => n.type === 'schedule');
+    if (hasSchedule) {
+      this.store.active.set(true);
+    }
+
     const body = {
       name: this.store.workflowName(),
       description: this.store.description(),
@@ -194,8 +199,13 @@ export class WorkflowEditor implements OnInit {
     req.subscribe({
       next: (wf) => {
         this.store.workflowId.set(wf.id);
+        this.store.active.set(wf.active ?? true);
         this.store.saving.set(false);
-        this.store.message.set('Workflow saved!');
+        this.store.message.set(
+          hasSchedule
+            ? 'Saved + schedule Active. Cron runs at the set time (no chat needed). Use “Run now” to test.'
+            : 'Workflow saved!',
+        );
         if (!id) {
           this.router.navigate(['/workflow-editor', wf.id], { replaceUrl: true });
         }

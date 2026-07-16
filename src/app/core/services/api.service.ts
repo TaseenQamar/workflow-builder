@@ -125,6 +125,44 @@ export class ApiService {
     );
   }
 
+  /** Fire Schedule workflow immediately (no chat). */
+  runScheduleNow(workflowId: string): Observable<{
+    ok?: boolean;
+    error?: string;
+    result?: Record<string, unknown>;
+  }> {
+    return this.http.post<{
+      ok?: boolean;
+      error?: string;
+      result?: Record<string, unknown>;
+    }>(`${this.base}/schedules/${workflowId}/run-now`, {});
+  }
+
+  listSchedules(): Observable<
+    Array<{
+      id: string;
+      workflowId: string;
+      cron: string;
+      timezone: string;
+      active: boolean;
+      lastRunAt?: string | null;
+    }>
+  > {
+    if (!this.base) return of([]);
+    return this.http
+      .get<
+        Array<{
+          id: string;
+          workflowId: string;
+          cron: string;
+          timezone: string;
+          active: boolean;
+          lastRunAt?: string | null;
+        }>
+      >(`${this.base}/schedules`)
+      .pipe(catchError(() => of([])));
+  }
+
   executeWorkflow(
     definition: WorkflowDefinition,
     triggerData: Record<string, unknown> = {},

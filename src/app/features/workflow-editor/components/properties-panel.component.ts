@@ -53,6 +53,23 @@ import {
             Connect nodes with <strong class="text-[#2BBFBA]">wires</strong> — they run in that order:
             Chat → HTTP → AI Agent. Type a prompt below and click <strong class="text-[#2BBFBA]">Chat</strong>.
           </p>
+          <div class="space-y-1.5 rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <p class="text-[10px] font-semibold uppercase text-amber-800">Schedule starters</p>
+            <button
+              type="button"
+              class="w-full rounded-lg bg-amber-700 px-3 py-2 text-[11px] font-semibold text-white hover:bg-amber-800"
+              (click)="buildScheduleSlack()"
+            >
+              Schedule → Slack (daily notify)
+            </button>
+            <button
+              type="button"
+              class="w-full rounded-lg border border-amber-400 bg-white px-3 py-2 text-[11px] font-medium text-amber-900 hover:bg-amber-100"
+              (click)="buildScheduleAgent()"
+            >
+              Schedule → AI Agent
+            </button>
+          </div>
         </div>
       } @else {
         <div class="mt-4 space-y-3 overflow-y-auto">
@@ -307,6 +324,125 @@ import {
                 <li><strong>Message box empty</strong> → auto sheet summary, or text from chat (e.g. <code>slack: Hello team</code>).</li>
                 <li>Chat only: <code>Slack pe bhejo: your one-line text</code></li>
               </ul>
+            </div>
+          }
+
+          @if (store.selectedNode()!.type === 'schedule') {
+            <div class="space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-[#4A4A4A]">
+              <p class="font-semibold text-amber-900">Schedule trigger</p>
+              <p class="text-[11px] text-[#575757]">
+                Starts the workflow on a timer. Wire the right port to
+                <strong>Slack</strong>, <strong>Email</strong>, or <strong>AI Agent</strong>
+                (solid main wire — not Tool).
+              </p>
+
+              <label class="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-white px-3 py-2">
+                <span class="text-[11px] font-medium text-[#1A1A1A]">Workflow Active (cron on)</span>
+                <input
+                  type="checkbox"
+                  class="h-4 w-4 accent-[#2BBFBA]"
+                  [ngModel]="store.active()"
+                  (ngModelChange)="store.active.set($event)"
+                />
+              </label>
+
+              <div>
+                <label class="block text-[10px] font-semibold uppercase text-[#757575]">Interval</label>
+                <select
+                  class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-white px-2 py-1.5 text-xs outline-none focus:border-amber-500"
+                  [ngModel]="String(store.selectedNode()!.data['interval'] ?? 'daily')"
+                  (ngModelChange)="updateScheduleField('interval', $event)"
+                >
+                  <option value="daily">Daily at set time</option>
+                  <option value="hourly">Every hour ( :00 )</option>
+                  <option value="every_minute">Every minute (test)</option>
+                </select>
+              </div>
+
+              @if ((store.selectedNode()!.data['interval'] ?? 'daily') === 'daily') {
+                <div class="grid grid-cols-2 gap-2">
+                  <div>
+                    <label class="block text-[10px] font-semibold uppercase text-[#757575]">Hour (0–23)</label>
+                    <select
+                      class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-white px-2 py-1.5 text-xs outline-none focus:border-amber-500"
+                      [ngModel]="String(store.selectedNode()!.data['hour'] ?? 9)"
+                      (ngModelChange)="updateScheduleField('hour', $event)"
+                    >
+                      @for (h of scheduleHours; track h) {
+                        <option [value]="h">{{ h }}</option>
+                      }
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-[10px] font-semibold uppercase text-[#757575]">Minute</label>
+                    <select
+                      class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-white px-2 py-1.5 text-xs outline-none focus:border-amber-500"
+                      [ngModel]="String(store.selectedNode()!.data['minute'] ?? 0)"
+                      (ngModelChange)="updateScheduleField('minute', $event)"
+                    >
+                      @for (m of scheduleMinutes; track m) {
+                        <option [value]="m">{{ m < 10 ? '0' + m : m }}</option>
+                      }
+                    </select>
+                  </div>
+                </div>
+              }
+
+              <div>
+                <label class="block text-[10px] font-semibold uppercase text-[#757575]">Timezone</label>
+                <select
+                  class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-white px-2 py-1.5 text-xs outline-none focus:border-amber-500"
+                  [ngModel]="String(store.selectedNode()!.data['timezone'] ?? 'Asia/Karachi')"
+                  (ngModelChange)="updateScheduleField('timezone', $event)"
+                >
+                  <option value="Asia/Karachi">Asia/Karachi (PKT)</option>
+                  <option value="UTC">UTC</option>
+                  <option value="Asia/Dubai">Asia/Dubai</option>
+                  <option value="America/New_York">America/New_York</option>
+                  <option value="Europe/London">Europe/London</option>
+                </select>
+              </div>
+
+              <p class="rounded border border-amber-200 bg-white px-2 py-1.5 font-mono text-[10px] text-[#575757]">
+                Cron: {{ store.selectedNode()!.data['cron'] || '0 9 * * *' }}
+              </p>
+
+              <div class="space-y-1.5 border-t border-amber-200 pt-2">
+                <p class="text-[10px] font-semibold uppercase text-[#757575]">Quick structure</p>
+                <button
+                  type="button"
+                  class="w-full rounded-lg bg-amber-700 px-3 py-2 text-[11px] font-semibold text-white hover:bg-amber-800"
+                  (click)="buildScheduleSlack()"
+                >
+                  Build Schedule → Slack
+                </button>
+                <button
+                  type="button"
+                  class="w-full rounded-lg border border-amber-400 bg-white px-3 py-2 text-[11px] font-medium text-amber-900 hover:bg-amber-100"
+                  (click)="buildScheduleAgent()"
+                >
+                  Build Schedule → AI Agent
+                </button>
+                <button
+                  type="button"
+                  class="w-full rounded-lg border border-emerald-500 bg-emerald-50 px-3 py-2 text-[11px] font-semibold text-emerald-900 hover:bg-emerald-100 disabled:opacity-50"
+                  [disabled]="runningSchedule || !store.workflowId()"
+                  (click)="runScheduleNow()"
+                >
+                  {{ runningSchedule ? 'Running…' : 'Run now (no chat)' }}
+                </button>
+                @if (scheduleRunMsg()) {
+                  <p class="text-[10px] text-emerald-700">{{ scheduleRunMsg() }}</p>
+                }
+                @if (scheduleRunErr()) {
+                  <p class="text-[10px] text-red-600">{{ scheduleRunErr() }}</p>
+                }
+              </div>
+
+              <p class="text-[10px] text-[#757575]">
+                1) Build flow → 2) <strong>Save</strong> (auto-Active) → 3) wait for time OR
+                <strong>Run now</strong>. Chat prompt is not required.
+              </p>
             </div>
           }
 
@@ -1462,12 +1598,8 @@ export class PropertiesPanelComponent implements OnInit {
           { key: 'seconds', label: 'Seconds', value: String(d['seconds'] ?? '1'), type: 'text' },
         ];
       case 'schedule':
-        return [
-          { key: 'hour', label: 'Hour (0-23, Karachi)', value: String(d['hour'] ?? '9'), type: 'text' },
-          { key: 'minute', label: 'Minute (0-59)', value: String(d['minute'] ?? '0'), type: 'text' },
-          { key: 'timezone', label: 'Timezone', value: String(d['timezone'] ?? 'Asia/Karachi'), type: 'text' },
-          { key: 'cron', label: 'Cron (optional override)', value: String(d['cron'] ?? ''), type: 'text' },
-        ];
+        // Custom Schedule UI above — no generic fields
+        return [];
       case 'google_sheets':
         // Custom n8n-style UI above — no generic fields
         return [];
@@ -1666,6 +1798,61 @@ export class PropertiesPanelComponent implements OnInit {
       default:
         return [];
     }
+  }
+
+  protected readonly scheduleHours = Array.from({ length: 24 }, (_, i) => i);
+  protected readonly scheduleMinutes = [0, 5, 10, 15, 20, 30, 45];
+  protected runningSchedule = false;
+  protected readonly scheduleRunMsg = signal<string | null>(null);
+  protected readonly scheduleRunErr = signal<string | null>(null);
+
+  protected updateScheduleField(key: string, value: string): void {
+    const node = this.store.selectedNode();
+    if (!node || node.type !== 'schedule') return;
+    const parsed =
+      key === 'hour' || key === 'minute' ? Number(value) : value;
+    this.store.updateNodeData(node.id, { [key]: parsed });
+    this.store.syncScheduleCron(node.id);
+  }
+
+  protected buildScheduleSlack(): void {
+    this.store.insertScheduleSlackTemplate(true);
+  }
+
+  protected buildScheduleAgent(): void {
+    this.store.insertScheduleAgentTemplate(true);
+  }
+
+  protected runScheduleNow(): void {
+    const id = this.store.workflowId();
+    if (!id) {
+      this.scheduleRunErr.set('Save the workflow first, then Run now.');
+      return;
+    }
+    this.runningSchedule = true;
+    this.scheduleRunMsg.set(null);
+    this.scheduleRunErr.set(null);
+    this.api.runScheduleNow(id).subscribe({
+      next: (res) => {
+        this.runningSchedule = false;
+        if (res?.ok === false) {
+          this.scheduleRunErr.set(
+            res.error ?? 'Schedule not registered — Save with Schedule node first.',
+          );
+          return;
+        }
+        this.scheduleRunMsg.set(
+          'Ran without chat. Check Slack / Executions for result.',
+        );
+        this.store.message.set('Schedule ran now (no chat prompt).');
+      },
+      error: (err) => {
+        this.runningSchedule = false;
+        this.scheduleRunErr.set(
+          err?.error?.message ?? err?.error?.error ?? 'Run now failed',
+        );
+      },
+    });
   }
 
   protected updateField(key: string, value: string): void {
