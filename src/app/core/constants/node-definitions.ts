@@ -114,6 +114,8 @@ export const NODE_CATALOG: NodeDefinition[] = [
     defaultData: {
       channel: '#general',
       message: '{{slackNotifyBody}}',
+      generateImage: 'false',
+      imagePrompt: '',
     },
   },
   {
@@ -124,19 +126,19 @@ export const NODE_CATALOG: NodeDefinition[] = [
     category: 'Actions',
     defaultData: {
       webhookUrl: '',
-      content: 'Hello from Cluster Valley: {{aiResponse}}',
+      content: '{{message}}',
     },
   },
   {
     type: 'telegram',
     label: 'Telegram',
-    description: 'Send Telegram bot message',
+    description: 'Send Telegram bot message (or photo from ImagePrompt)',
     icon: '✈️',
     category: 'Actions',
     defaultData: {
       botToken: '',
       chatId: '',
-      text: 'Hello: {{message}}',
+      text: '{{message}}',
     },
   },
   {
@@ -198,10 +200,10 @@ export const NODE_CATALOG: NodeDefinition[] = [
     defaultData: {
       pageId: '',
       accessToken: '',
-      message: '{{nextPost.message}}',
-      link: '{{nextPost.link}}',
-      imageUrl: '{{nextPost.imageUrl}}',
-      dryRun: 'true',
+      message: '{{message}}',
+      link: '{{link}}',
+      imageUrl: '{{imageUrl}}',
+      dryRun: 'false',
     },
   },
   {
@@ -213,9 +215,9 @@ export const NODE_CATALOG: NodeDefinition[] = [
     defaultData: {
       igUserId: '',
       accessToken: '',
-      caption: '{{nextPost.message}}',
-      imageUrl: '{{nextPost.imageUrl}}',
-      dryRun: 'true',
+      caption: '{{message}}',
+      imageUrl: '{{imageUrl}}',
+      dryRun: 'false',
     },
   },
   {
@@ -227,8 +229,8 @@ export const NODE_CATALOG: NodeDefinition[] = [
     defaultData: {
       accessToken: '',
       authorUrn: '',
-      text: '{{nextPost.message}}',
-      dryRun: 'true',
+      text: '{{message}}',
+      dryRun: 'false',
     },
   },
   {
@@ -265,6 +267,8 @@ export const NODE_CATALOG: NodeDefinition[] = [
       agentType: 'tools',
       instructions:
         'You are the Cluster Valley AI guide for this workflow. Always reply in the user\'s language. Explain the full Chat→Agent→Tools flow when asked. For hi/hello/thanks/small talk: reply only — do NOT call tools. Call google_sheets / send_email / send_slack only when the user clearly asks in this message. After a successful sheet write, also notify email/Slack if attached. Never invent Apps Script.',
+      scheduledPrompt:
+        'Daily job: Call google_sheets to load today\'s next row (Message + optional ImagePrompt). Then call send_slack with that Message. If ImagePrompt is present, pass it as imagePrompt so an image is generated and posted to Slack. Do not wait for chat.',
       outputKey: 'aiResponse',
     },
   },

@@ -413,12 +413,14 @@ export class ApiService {
     clientEmail: string | null;
     message: string;
     path?: string;
+    source?: 'env' | 'file' | 'none';
   }> {
     if (!this.base) {
       return of({
         configured: false,
         clientEmail: null,
         message: 'Backend API URL not set',
+        source: 'none',
       });
     }
     return this.http
@@ -426,6 +428,7 @@ export class ApiService {
         configured: boolean;
         clientEmail: string | null;
         message: string;
+        source?: 'env' | 'file' | 'none';
       }>(`${this.base}/integrations/status/google-sheets`)
       .pipe(
         catchError(() =>
@@ -433,6 +436,7 @@ export class ApiService {
             configured: false,
             clientEmail: null,
             message: 'Backend offline',
+            source: 'none' as const,
           }),
         ),
       );
@@ -451,6 +455,23 @@ export class ApiService {
       clientEmail?: string;
       message?: string;
     }>(`${this.base}/integrations/google-sheets/credentials`, { json });
+  }
+
+  clearGoogleSheetsCredentials(): Observable<{
+    cleared: boolean;
+    stillConfigured?: boolean;
+    message?: string;
+    source?: string;
+  }> {
+    if (!this.base) {
+      return of({ cleared: false, message: 'Backend API URL not set' });
+    }
+    return this.http.delete<{
+      cleared: boolean;
+      stillConfigured?: boolean;
+      message?: string;
+      source?: string;
+    }>(`${this.base}/integrations/google-sheets/credentials`);
   }
 
   getEmailStatus(): Observable<{
@@ -621,6 +642,35 @@ export class ApiService {
           of({
             ok: false,
             message: err?.error?.message ?? 'Slack test failed',
+          }),
+        ),
+      );
+  }
+
+  listSlackChannels(): Observable<{
+    ok: boolean;
+    channels: { id: string; name: string; isPrivate?: boolean }[];
+    message?: string;
+  }> {
+    if (!this.base) {
+      return of({
+        ok: false,
+        channels: [],
+        message: 'Backend API URL not set',
+      });
+    }
+    return this.http
+      .get<{
+        ok: boolean;
+        channels: { id: string; name: string; isPrivate?: boolean }[];
+        message?: string;
+      }>(`${this.base}/integrations/slack/channels`)
+      .pipe(
+        catchError((err) =>
+          of({
+            ok: false,
+            channels: [],
+            message: err?.error?.message ?? 'Could not load Slack channels',
           }),
         ),
       );

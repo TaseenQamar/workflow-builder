@@ -54,20 +54,30 @@ import {
             Chat → HTTP → AI Agent. Type a prompt below and click <strong class="text-[#2BBFBA]">Chat</strong>.
           </p>
           <div class="space-y-1.5 rounded-lg border border-amber-200 bg-amber-50 p-3">
-            <p class="text-[10px] font-semibold uppercase text-amber-800">Schedule starters</p>
+            <p class="text-[10px] font-semibold uppercase text-amber-800">
+              Daily post starter
+            </p>
+            <p class="text-[10px] text-[#575757]">
+              Same sheet queue → Slack / Facebook / Instagram / Telegram / Discord / LinkedIn
+            </p>
+            <label class="block text-[10px] font-medium text-[#757575]">Post to</label>
+            <select
+              class="w-full rounded-lg border border-[#CDDBD9] bg-white px-2 py-1.5 text-xs"
+              [(ngModel)]="dailySocialTarget"
+            >
+              <option value="slack">Slack</option>
+              <option value="facebook">Facebook</option>
+              <option value="instagram">Instagram</option>
+              <option value="telegram">Telegram</option>
+              <option value="discord">Discord</option>
+              <option value="linkedin">LinkedIn</option>
+            </select>
             <button
               type="button"
               class="w-full rounded-lg bg-amber-700 px-3 py-2 text-[11px] font-semibold text-white hover:bg-amber-800"
-              (click)="buildScheduleSlack()"
+              (click)="buildScheduleDailySheetSocial()"
             >
-              Schedule → Slack (daily notify)
-            </button>
-            <button
-              type="button"
-              class="w-full rounded-lg border border-amber-400 bg-white px-3 py-2 text-[11px] font-medium text-amber-900 hover:bg-amber-100"
-              (click)="buildScheduleAgent()"
-            >
-              Schedule → AI Agent
+              Build Schedule → Sheet → {{ dailySocialTargetLabel() }}
             </button>
           </div>
         </div>
@@ -78,12 +88,23 @@ import {
             <input
               class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-[#F5FBFA] px-3 py-2 text-sm text-[#1A1A1A] outline-none focus:border-[#2BBFBA]"
               [ngModel]="store.selectedNode()!.label"
-              (ngModelChange)="store.updateNodeLabel(store.selectedNode()!.id, $event)"
+              (ngModelChange)="onNodeLabelChange($event)"
             />
           </div>
           <div>
             <label class="block text-xs text-[#757575]">Type</label>
             <p class="mt-1 text-sm capitalize text-[#4A4A4A]">{{ store.selectedNode()!.type }}</p>
+            @if (store.selectedNode()!.type === 'slack' && store.selectedNode()!.label !== 'Slack') {
+              <p class="mt-1 text-[10px] text-amber-700">
+                Ye <strong>Slack</strong> node hai (label rename se type nahi badalta). Time set karne ke liye canvas pe clock wala
+                <strong>Schedule</strong> node select karo.
+              </p>
+            }
+            @if (store.selectedNode()!.type === 'schedule') {
+              <p class="mt-1 text-[10px] text-amber-800">
+                Time / interval neeche set karo, phir top <strong>Save</strong>.
+              </p>
+            }
           </div>
 
           @if (store.selectedNode()!.type === 'chat_model') {
@@ -234,23 +255,39 @@ import {
             <div class="rounded-lg border border-[#9FE0DC] bg-[#F5FBFA] p-3 text-xs">
               <p class="font-medium text-[#2BBFBA]">AI Agent (n8n Tools Agent)</p>
               <p class="mt-1 text-[10px] text-[#4A4A4A]">
-                <strong>Like n8n:</strong> Chat → Agent (main).
-                Connect Google Sheets / Email to the Agent’s bottom <strong>Tool</strong> port.
-                The agent calls Sheets when asked; after a sheet write it also sends Email (tool port).
+                <strong>Chat flow:</strong> Chat → Agent (main). Tools on dashed Tool port.
+                <strong>Schedule flow:</strong> Schedule → Agent; Agent runs the Schedule Prompt below (no chat).
               </p>
               <ul class="mt-2 space-y-1 text-[#757575]">
                 <li>{{ agentStatus().chatModel ? '✓' : '✗' }} Chat Model (API key in Settings)</li>
                 <li>{{ agentStatus().memory ? '✓' : '○' }} Memory (Window Buffer)</li>
-                <li>{{ agentStatus().tool ? '✓' : '○' }} Tool(s) — Sheets / Email</li>
+                <li>{{ agentStatus().tool ? '✓' : '○' }} Tool(s) — Sheets / Email / Slack</li>
                 <li>{{ agentStatus().flowInput ? '✓' : '✗' }} Trigger connected</li>
               </ul>
+
+              <div class="mt-3 space-y-1.5 rounded-lg border border-amber-200 bg-amber-50 p-2">
+                <p class="text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+                  Schedule Prompt (when cron fires)
+                </p>
+                <textarea
+                  class="w-full rounded border border-amber-200 bg-white px-2 py-1.5 text-[11px] text-[#1A1A1A] outline-none focus:border-amber-500"
+                  rows="4"
+                  [ngModel]="String(store.selectedNode()!.data['scheduledPrompt'] ?? '')"
+                  (ngModelChange)="updateField('scheduledPrompt', $event)"
+                  placeholder="e.g. Read the next Google Sheet row for today, then post Message to Slack. If ImagePrompt exists, generate that image and post it too."
+                ></textarea>
+                <p class="text-[10px] text-[#757575]">
+                  Schedule time pe chat ki zaroorat nahi — ye prompt Agent ko milta hai, phir woh tools call karta hai.
+                </p>
+              </div>
+
               @if (agentStatus().memory) {
                 <p class="mt-2 text-[11px] text-emerald-700">
-                  Memory on — saved in <strong>PostgreSQL</strong> (n8n-style window buffer). Select the Memory node for window length / session key. <strong>New chat</strong> clears the session.
+                  Memory on — saved in <strong>PostgreSQL</strong>. <strong>New chat</strong> clears the session.
                 </p>
               } @else {
                 <p class="mt-2 text-[11px] text-amber-600">
-                  No Memory attached — each message is forgotten. Click “Attach Model + Memory” or wire a Window Buffer Memory node.
+                  No Memory attached — optional for Schedule jobs.
                 </p>
               }
               @if (!agentStatus().chatModel) {
@@ -314,30 +351,65 @@ import {
           }
 
           @if (store.selectedNode()!.type === 'slack') {
-            <div class="rounded-lg border border-pink-200 bg-pink-50 p-3 text-xs text-[#4A4A4A]">
-              <p class="font-medium text-[#1A1A1A]">Slack channel message</p>
-              <p class="mt-1">
-                Bot token: <strong>Settings → Slack</strong>. Here set channel + optional fixed Message.
+            <div class="space-y-3 rounded-lg border border-pink-200 bg-pink-50 p-3 text-xs text-[#4A4A4A]">
+              <p class="font-semibold text-pink-900">Slack</p>
+              <p class="text-[10px] text-[#757575]">
+                Bot token in <a routerLink="/settings" class="font-medium text-pink-700 underline">Settings → Slack</a>.
+                Here set <strong>channel</strong> + optional message.
               </p>
-              <ul class="mt-1 list-disc space-y-0.5 pl-4 text-[11px] text-[#575757]">
-                <li><strong>Message box filled</strong> → that exact text is posted (save workflow / keep node selected so it sticks).</li>
-                <li><strong>Message box empty</strong> → auto sheet summary, or text from chat (e.g. <code>slack: Hello team</code>).</li>
-                <li>Chat only: <code>Slack pe bhejo: your one-line text</code></li>
-              </ul>
+
+              <div>
+                <label class="block text-[10px] font-semibold uppercase text-[#757575]">Channel</label>
+                <input
+                  class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-white px-3 py-2 text-sm outline-none focus:border-pink-500"
+                  [ngModel]="String(store.selectedNode()!.data['channel'] ?? '#general')"
+                  (ngModelChange)="updateField('channel', $event)"
+                  placeholder="#general"
+                />
+              </div>
+
+              <div>
+                <label class="block text-[10px] font-semibold uppercase text-[#757575]">Message (optional)</label>
+                <textarea
+                  class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-white px-3 py-2 text-sm outline-none focus:border-pink-500"
+                  rows="3"
+                  [ngModel]="String(store.selectedNode()!.data['message'] ?? '')"
+                  (ngModelChange)="updateField('message', $event)"
+                  placeholder="Blank = sheet row / auto summary"
+                ></textarea>
+              </div>
+
+              <label class="flex items-center justify-between gap-2 rounded-lg border border-pink-200 bg-white px-3 py-2">
+                <span class="text-[11px] text-[#1A1A1A]">Generate AI image with post</span>
+                <input
+                  type="checkbox"
+                  class="h-4 w-4 accent-pink-600"
+                  [ngModel]="String(store.selectedNode()!.data['generateImage'] ?? 'false') === 'true'"
+                  (ngModelChange)="updateField('generateImage', $event ? 'true' : 'false')"
+                />
+              </label>
+              @if (String(store.selectedNode()!.data['generateImage'] ?? 'false') === 'true') {
+                <textarea
+                  class="w-full rounded-lg border border-[#CDDBD9] bg-white px-3 py-2 text-[11px] outline-none focus:border-pink-500"
+                  rows="2"
+                  [ngModel]="String(store.selectedNode()!.data['imagePrompt'] ?? '')"
+                  (ngModelChange)="updateField('imagePrompt', $event)"
+                  placeholder="Image prompt (or use sheet ImagePrompt)"
+                ></textarea>
+              }
             </div>
           }
 
           @if (store.selectedNode()!.type === 'schedule') {
             <div class="space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-[#4A4A4A]">
-              <p class="font-semibold text-amber-900">Schedule trigger</p>
-              <p class="text-[11px] text-[#575757]">
-                Starts the workflow on a timer. Wire the right port to
-                <strong>Slack</strong>, <strong>Email</strong>, or <strong>AI Agent</strong>
-                (solid main wire — not Tool).
+              <p class="font-semibold text-amber-900">Schedule</p>
+              <p class="text-[10px] text-[#575757]">
+                Wire: <strong>Schedule → Sheets → Slack</strong>. After changing time, click top
+                <strong>Save</strong>.
               </p>
 
               <label class="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-white px-3 py-2">
-                <span class="text-[11px] font-medium text-[#1A1A1A]">Workflow Active (cron on)</span>
+                <span class="text-[11px] font-medium text-[#1A1A1A]">Active (cron on)</span>
                 <input
                   type="checkbox"
                   class="h-4 w-4 accent-[#2BBFBA]"
@@ -347,45 +419,55 @@ import {
               </label>
 
               <div>
-                <label class="block text-[10px] font-semibold uppercase text-[#757575]">Interval</label>
+                <label class="block text-[10px] font-semibold uppercase text-[#757575]">When</label>
                 <select
                   class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-white px-2 py-1.5 text-xs outline-none focus:border-amber-500"
                   [ngModel]="String(store.selectedNode()!.data['interval'] ?? 'daily')"
                   (ngModelChange)="updateScheduleField('interval', $event)"
                 >
-                  <option value="daily">Daily at set time</option>
-                  <option value="hourly">Every hour ( :00 )</option>
+                  <option value="daily">Every day at…</option>
+                  <option value="hourly">Every hour</option>
                   <option value="every_minute">Every minute (test)</option>
                 </select>
               </div>
 
-              @if ((store.selectedNode()!.data['interval'] ?? 'daily') === 'daily') {
-                <div class="grid grid-cols-2 gap-2">
-                  <div>
-                    <label class="block text-[10px] font-semibold uppercase text-[#757575]">Hour (0–23)</label>
-                    <select
-                      class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-white px-2 py-1.5 text-xs outline-none focus:border-amber-500"
-                      [ngModel]="String(store.selectedNode()!.data['hour'] ?? 9)"
-                      (ngModelChange)="updateScheduleField('hour', $event)"
-                    >
-                      @for (h of scheduleHours; track h) {
-                        <option [value]="h">{{ h }}</option>
-                      }
-                    </select>
-                  </div>
-                  <div>
-                    <label class="block text-[10px] font-semibold uppercase text-[#757575]">Minute</label>
-                    <select
-                      class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-white px-2 py-1.5 text-xs outline-none focus:border-amber-500"
-                      [ngModel]="String(store.selectedNode()!.data['minute'] ?? 0)"
-                      (ngModelChange)="updateScheduleField('minute', $event)"
-                    >
-                      @for (m of scheduleMinutes; track m) {
-                        <option [value]="m">{{ m < 10 ? '0' + m : m }}</option>
-                      }
-                    </select>
-                  </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="block text-[10px] font-semibold uppercase text-[#757575]">Hour (0–23)</label>
+                  <select
+                    class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-white px-2 py-1.5 text-xs outline-none focus:border-amber-500"
+                    [ngModel]="String(store.selectedNode()!.data['hour'] ?? 9)"
+                    (ngModelChange)="updateScheduleField('hour', $event)"
+                    [disabled]="(store.selectedNode()!.data['interval'] ?? 'daily') !== 'daily'"
+                  >
+                    @for (h of scheduleHours; track h) {
+                      <option [value]="h">{{ h < 10 ? '0' + h : h }}</option>
+                    }
+                  </select>
                 </div>
+                <div>
+                  <label class="block text-[10px] font-semibold uppercase text-[#757575]">Minute</label>
+                  <select
+                    class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-white px-2 py-1.5 text-xs outline-none focus:border-amber-500"
+                    [ngModel]="String(store.selectedNode()!.data['minute'] ?? 0)"
+                    (ngModelChange)="updateScheduleField('minute', $event)"
+                    [disabled]="(store.selectedNode()!.data['interval'] ?? 'daily') !== 'daily'"
+                  >
+                    @for (m of scheduleMinutes; track m) {
+                      <option [value]="m">{{ m < 10 ? '0' + m : m }}</option>
+                    }
+                  </select>
+                </div>
+              </div>
+              <p class="text-[10px] text-[#757575]">
+                Hour / Minute use hote hain jab When = Every day. Every minute / hour pe disable.
+              </p>
+
+              @if ((store.selectedNode()!.data['interval'] ?? '') === 'every_minute') {
+                <p class="rounded border border-amber-300 bg-white px-2 py-1.5 text-[10px] text-amber-900">
+                  Test mode: runs about once per minute. Set Slack channel + sheet, then top
+                  <strong>Save</strong>, or use <strong>Run now</strong>.
+                </p>
               }
 
               <div>
@@ -404,32 +486,17 @@ import {
               </div>
 
               <p class="rounded border border-amber-200 bg-white px-2 py-1.5 font-mono text-[10px] text-[#575757]">
-                Cron: {{ store.selectedNode()!.data['cron'] || '0 9 * * *' }}
+                Cron: {{ store.selectedNode()!.data['cron'] || '—' }}
               </p>
 
               <div class="space-y-1.5 border-t border-amber-200 pt-2">
-                <p class="text-[10px] font-semibold uppercase text-[#757575]">Quick structure</p>
-                <button
-                  type="button"
-                  class="w-full rounded-lg bg-amber-700 px-3 py-2 text-[11px] font-semibold text-white hover:bg-amber-800"
-                  (click)="buildScheduleSlack()"
-                >
-                  Build Schedule → Slack
-                </button>
-                <button
-                  type="button"
-                  class="w-full rounded-lg border border-amber-400 bg-white px-3 py-2 text-[11px] font-medium text-amber-900 hover:bg-amber-100"
-                  (click)="buildScheduleAgent()"
-                >
-                  Build Schedule → AI Agent
-                </button>
                 <button
                   type="button"
                   class="w-full rounded-lg border border-emerald-500 bg-emerald-50 px-3 py-2 text-[11px] font-semibold text-emerald-900 hover:bg-emerald-100 disabled:opacity-50"
                   [disabled]="runningSchedule || !store.workflowId()"
                   (click)="runScheduleNow()"
                 >
-                  {{ runningSchedule ? 'Running…' : 'Run now (no chat)' }}
+                  {{ runningSchedule ? 'Running…' : 'Run now (test)' }}
                 </button>
                 @if (scheduleRunMsg()) {
                   <p class="text-[10px] text-emerald-700">{{ scheduleRunMsg() }}</p>
@@ -437,12 +504,10 @@ import {
                 @if (scheduleRunErr()) {
                   <p class="text-[10px] text-red-600">{{ scheduleRunErr() }}</p>
                 }
+                <p class="text-[10px] text-[#757575]">
+                  Sheets: Document + tab · Slack: <strong>#channel</strong> · then top <strong>Save</strong>.
+                </p>
               </div>
-
-              <p class="text-[10px] text-[#757575]">
-                1) Build flow → 2) <strong>Save</strong> (auto-Active) → 3) wait for time OR
-                <strong>Run now</strong>. Chat prompt is not required.
-              </p>
             </div>
           }
 
@@ -456,29 +521,64 @@ import {
               <!-- 1) Credential -->
               <div class="rounded-lg border border-green-200 bg-white p-2">
                 <p class="text-[10px] font-semibold uppercase text-[#757575]">Credential to connect with</p>
-                @if (googleSheetsConfigured()) {
+                @if (googleSheetsConfigured() && !googleSheetsReplacing()) {
                   <p class="mt-1 text-[11px] text-emerald-700">
                     ✓ Google Sheets account
                     @if (googleSheetsEmail()) {
                       <span class="block truncate text-[10px] text-[#757575]">{{ googleSheetsEmail() }}</span>
                     }
                   </p>
+                  <div class="mt-2 flex gap-1.5">
+                    <button
+                      type="button"
+                      class="flex-1 rounded border border-green-600 bg-white py-1.5 text-[11px] font-medium text-green-800 hover:bg-green-50 disabled:opacity-50"
+                      [disabled]="removingGoogleSheets"
+                      (click)="startReplaceGoogleSheetsCredential()"
+                    >
+                      Replace JSON
+                    </button>
+                    <button
+                      type="button"
+                      class="flex-1 rounded border border-red-300 bg-white py-1.5 text-[11px] font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+                      [disabled]="removingGoogleSheets"
+                      (click)="removeGoogleSheetsCredential()"
+                    >
+                      {{ removingGoogleSheets ? 'Removing…' : 'Remove' }}
+                    </button>
+                  </div>
                 } @else {
-                  <p class="mt-1 text-[11px] text-amber-700">No credential — paste Service Account JSON below</p>
+                  <p class="mt-1 text-[11px] text-amber-700">
+                    {{
+                      googleSheetsReplacing()
+                        ? 'Paste a new Service Account JSON to replace the current one'
+                        : 'No credential — paste Service Account JSON below'
+                    }}
+                  </p>
                   <textarea
                     class="mt-1 w-full rounded border border-[#CDDBD9] px-2 py-1 font-mono text-[10px] outline-none focus:border-green-500"
                     rows="3"
                     [(ngModel)]="googleSheetsJson"
                     placeholder='{"type":"service_account","client_email":"...","private_key":"..."}'
                   ></textarea>
-                  <button
-                    type="button"
-                    class="mt-1 w-full rounded bg-green-700 py-1.5 text-[11px] text-white disabled:opacity-50"
-                    [disabled]="savingGoogleSheets || !googleSheetsJson.trim()"
-                    (click)="saveGoogleSheetsFromPanel()"
-                  >
-                    {{ savingGoogleSheets ? 'Saving…' : 'Save credential' }}
-                  </button>
+                  <div class="mt-1 flex gap-1.5">
+                    <button
+                      type="button"
+                      class="flex-1 rounded bg-green-700 py-1.5 text-[11px] text-white disabled:opacity-50"
+                      [disabled]="savingGoogleSheets || !googleSheetsJson.trim()"
+                      (click)="saveGoogleSheetsFromPanel()"
+                    >
+                      {{ savingGoogleSheets ? 'Saving…' : 'Save credential' }}
+                    </button>
+                    @if (googleSheetsReplacing()) {
+                      <button
+                        type="button"
+                        class="rounded border border-[#CDDBD9] bg-white px-2 py-1.5 text-[11px] text-[#575757] hover:bg-gray-50"
+                        (click)="cancelReplaceGoogleSheetsCredential()"
+                      >
+                        Cancel
+                      </button>
+                    }
+                  </div>
                 }
                 @if (googleSheetsMsg()) {
                   <p class="mt-1 text-[10px] text-emerald-700">{{ googleSheetsMsg() }}</p>
@@ -542,7 +642,36 @@ import {
                   <option value="delete_matching">Delete by filter (any column)</option>
                   <option value="update">Update fixed range (A2:F2)</option>
                   <option value="read">Get Row(s) / Read</option>
+                  <option value="read_next_daily">Daily next row → Slack</option>
                 </select>
+                @if (gsOperation() === 'read_next_daily') {
+                  <div class="mt-2 space-y-2 rounded border border-green-200 bg-white p-2 text-[10px] text-[#575757]">
+                    <p>
+                      Loads the sheet, takes the <strong>first row where Post ≠ success</strong>,
+                      posts to Slack, then writes <code>success</code> or <code>failed</code>
+                      in the <strong>Post</strong> column.
+                      Headers: <code>Message</code> | <code>ImagePrompt</code> (optional) | <code>Post</code>
+                    </p>
+                    <label class="block font-medium text-[#757575]">Pick mode</label>
+                    <select
+                      class="w-full rounded border border-[#CDDBD9] px-2 py-1 text-xs"
+                      [ngModel]="String(store.selectedNode()!.data['dailyPickMode'] ?? 'unposted')"
+                      (ngModelChange)="updateField('dailyPickMode', $event)"
+                    >
+                      <option value="unposted">Unposted queue (Post column) — recommended</option>
+                      <option value="sequential">Sequential cursor</option>
+                      <option value="day_of_month">Calendar day of month</option>
+                      <option value="day_of_year">Day of year rotate</option>
+                    </select>
+                    <label class="mt-1 block font-medium text-[#757575]">Post status column</label>
+                    <input
+                      class="w-full rounded border border-[#CDDBD9] px-2 py-1 text-xs"
+                      [ngModel]="String(store.selectedNode()!.data['postStatusColumn'] ?? 'Post')"
+                      (ngModelChange)="updateField('postStatusColumn', $event)"
+                      placeholder="Post"
+                    />
+                  </div>
+                }
                 @if (gsOperation() === 'auto' || gsOperation() === 'chat') {
                   <p class="mt-1 text-[10px] text-green-800">
                     In chat say: “update the sheet” / “add a new row”. Values come from the right sidebar columns. Saying “hi” will not change the sheet.
@@ -727,16 +856,22 @@ import {
               <!-- Save settings + Execute now (sidebar, without chat) -->
               <div class="space-y-2 rounded-lg border border-green-400 bg-white p-2">
                 <p class="text-[10px] font-semibold uppercase text-[#757575]">Actions</p>
-                <button
-                  type="button"
-                  class="w-full rounded-lg border border-teal-600 bg-teal-50 py-2 text-xs font-semibold text-teal-900 hover:bg-teal-100"
-                  (click)="attachSheetsAsAgentTool()"
-                >
-                  Attach as AI Agent Tool (n8n)
-                </button>
-                <p class="text-[10px] text-teal-800">
-                  Ya Sheets ke <strong>top teal dot</strong> se drag karke Agent ke neeche <strong>Tool</strong> port pe drop karo.
-                </p>
+                @if (gsOperation() !== 'read_next_daily') {
+                  <button
+                    type="button"
+                    class="w-full rounded-lg border border-teal-600 bg-teal-50 py-2 text-xs font-semibold text-teal-900 hover:bg-teal-100"
+                    (click)="attachSheetsAsAgentTool()"
+                  >
+                    Attach as AI Agent Tool (n8n)
+                  </button>
+                  <p class="text-[10px] text-teal-800">
+                    Ya Sheets ke <strong>top teal dot</strong> se drag karke Agent ke neeche <strong>Tool</strong> port pe drop karo.
+                  </p>
+                } @else {
+                  <p class="rounded border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-[10px] text-emerald-900">
+                    Daily queue: Schedule → this Sheet → Slack (solid wires). No Agent needed.
+                  </p>
+                }
                 <button
                   type="button"
                   class="w-full rounded-lg border border-green-700 bg-white py-2 text-xs font-semibold text-green-900 hover:bg-green-50"
@@ -753,7 +888,9 @@ import {
                   {{
                     executingGs
                       ? 'Executing…'
-                      : gsOperation() === 'delete_matching'
+                      : gsOperation() === 'read_next_daily'
+                        ? 'Execute — pick next row'
+                        : gsOperation() === 'delete_matching'
                         ? 'Execute — Delete rows'
                         : gsOperation() === 'append'
                           ? 'Execute — Add row'
@@ -765,7 +902,7 @@ import {
                   }}
                 </button>
                 <p class="text-[10px] text-[#757575]">
-                  Save = store node settings. Execute = run the Google Sheet operation now (no chat needed).
+                  Save node settings here. For every-minute test: Schedule → Every minute → top Save → Run now.
                 </p>
                 @if (gsExecuteMsg()) {
                   <p class="text-[10px] text-emerald-700 whitespace-pre-wrap">{{ gsExecuteMsg() }}</p>
@@ -838,6 +975,9 @@ export class PropertiesPanelComponent implements OnInit {
   private readonly api = inject(ApiService);
   readonly runChat = output<void>();
 
+  /** Allow String(...) in template bindings (Angular strict template check). */
+  protected readonly String = String;
+
   protected readonly presets = LLM_PROVIDER_PRESETS;
   protected readonly aiStatus = signal<AiIntegrationStatus>({
     openai: { configured: false, source: 'none' },
@@ -860,12 +1000,14 @@ export class PropertiesPanelComponent implements OnInit {
 
   protected googleSheetsJson = '';
   protected savingGoogleSheets = false;
+  protected removingGoogleSheets = false;
   protected loadingSheets = false;
   protected loadingHeaders = false;
   protected readonly googleSheetsConfigured = signal(false);
   protected readonly googleSheetsEmail = signal<string | null>(null);
   protected readonly googleSheetsMsg = signal<string | null>(null);
   protected readonly googleSheetsErr = signal<string | null>(null);
+  protected readonly googleSheetsReplacing = signal(false);
   protected readonly gsDocInput = signal('');
   protected readonly gsSheetOptions = signal<{ title: string; sheetId: number }[]>(
     [],
@@ -888,6 +1030,16 @@ export class PropertiesPanelComponent implements OnInit {
   protected readonly emailMailerFrom = signal<string | null>(null);
   protected readonly emailMailerMsg = signal<string | null>(null);
 
+  protected loadingSlackChannels = false;
+  protected readonly slackConfigured = signal(false);
+  protected readonly slackChannelOptions = signal<
+    { id: string; name: string; isPrivate?: boolean }[]
+  >([]);
+  protected readonly slackChannelSelectValue = signal('');
+  protected readonly slackChannelMsg = signal<string | null>(null);
+  private lastSlackNodeId: string | null = null;
+  private lastScheduleNodeId: string | null = null;
+
   private lastGsNodeId: string | null = null;
   private readonly _gsSelectEffect = effect(() => {
     const node = this.store.selectedNode();
@@ -899,12 +1051,40 @@ export class PropertiesPanelComponent implements OnInit {
     } else {
       this.lastGsNodeId = null;
     }
+
+    if (node?.type === 'slack') {
+      if (node.id !== this.lastSlackNodeId) {
+        this.lastSlackNodeId = node.id;
+        if (node.label === 'Schedule' || !String(node.label ?? '').trim()) {
+          this.store.updateNodeLabel(node.id, 'Slack');
+        }
+        this.hydrateSlackUi();
+      }
+    } else {
+      this.lastSlackNodeId = null;
+    }
+
+    if (node?.type === 'schedule') {
+      if (node.id !== this.lastScheduleNodeId) {
+        this.lastScheduleNodeId = node.id;
+        if (
+          !node.label ||
+          node.label === 'Google Sheets' ||
+          node.label === 'Slack'
+        ) {
+          this.store.updateNodeLabel(node.id, 'Schedule');
+        }
+      }
+    } else {
+      this.lastScheduleNodeId = null;
+    }
   });
 
   ngOnInit(): void {
     this.refreshAiStatus();
     this.refreshGoogleSheetsStatus();
     this.refreshEmailMailerStatus();
+    this.refreshSlackStatus();
   }
 
   protected refreshEmailMailerStatus(): void {
@@ -913,6 +1093,72 @@ export class PropertiesPanelComponent implements OnInit {
       this.emailMailerFrom.set(s.fromEmail);
       this.emailMailerMsg.set(s.message);
     });
+  }
+
+  protected refreshSlackStatus(): void {
+    this.api.getSlackStatus().subscribe((s) => {
+      this.slackConfigured.set(!!s.configured);
+    });
+  }
+
+  protected hydrateSlackUi(): void {
+    const node = this.store.selectedNode();
+    if (!node || node.type !== 'slack') return;
+    this.refreshSlackStatus();
+    const ch = String(node.data['channel'] ?? '').trim();
+    if (!ch) {
+      this.api.getSlackStatus().subscribe((s) => {
+        const def = (s.defaultChannel || '#general').trim();
+        if (def) {
+          this.updateField('channel', def);
+          this.slackChannelSelectValue.set(def.startsWith('#') ? def : `#${def}`);
+        }
+      });
+    } else {
+      this.slackChannelSelectValue.set(ch.startsWith('#') || ch.startsWith('C') ? ch : `#${ch}`);
+    }
+    // Auto-load channel list when bot is ready
+    this.loadSlackChannels(true);
+  }
+
+  protected loadSlackChannels(silent = false): void {
+    if (!silent) this.slackChannelMsg.set(null);
+    this.loadingSlackChannels = true;
+    this.api.listSlackChannels().subscribe((res) => {
+      this.loadingSlackChannels = false;
+      if (!res.ok) {
+        this.slackChannelOptions.set([]);
+        this.slackChannelMsg.set(
+          res.message ||
+            'Could not list channels — type #name manually. Bot needs channels:read scope.',
+        );
+        return;
+      }
+      this.slackChannelOptions.set(res.channels ?? []);
+      const current = String(
+        this.store.selectedNode()?.data['channel'] ?? '',
+      ).trim();
+      if (current) {
+        const name = current.replace(/^#/, '').toLowerCase();
+        const match = (res.channels ?? []).find(
+          (c) => c.name.toLowerCase() === name || c.id === current,
+        );
+        this.slackChannelSelectValue.set(
+          match ? `#${match.name}` : '__custom__',
+        );
+      }
+      if (!silent) {
+        this.slackChannelMsg.set(
+          `${res.channels?.length ?? 0} channel(s) loaded`,
+        );
+      }
+    });
+  }
+
+  protected onSlackChannelPick(value: string): void {
+    this.slackChannelSelectValue.set(value);
+    if (!value || value === '__custom__') return;
+    this.updateField('channel', value);
   }
 
   protected refreshGoogleSheetsStatus(): void {
@@ -983,6 +1229,7 @@ export class PropertiesPanelComponent implements OnInit {
         this.savingGoogleSheets = false;
         if (res.saved) {
           this.googleSheetsJson = '';
+          this.googleSheetsReplacing.set(false);
           this.googleSheetsMsg.set(
             (res.message ?? 'Saved') +
               ' — Share the sheet with this email as Editor, then Load sheets.',
@@ -997,6 +1244,53 @@ export class PropertiesPanelComponent implements OnInit {
         this.googleSheetsErr.set(
           err?.error?.message ??
             'Save failed — backend online? Settings → Backend API URL set?',
+        );
+      },
+    });
+  }
+
+  protected startReplaceGoogleSheetsCredential(): void {
+    this.googleSheetsReplacing.set(true);
+    this.googleSheetsJson = '';
+    this.googleSheetsMsg.set(null);
+    this.googleSheetsErr.set(null);
+  }
+
+  protected cancelReplaceGoogleSheetsCredential(): void {
+    this.googleSheetsReplacing.set(false);
+    this.googleSheetsJson = '';
+    this.googleSheetsErr.set(null);
+  }
+
+  protected removeGoogleSheetsCredential(): void {
+    if (
+      !confirm(
+        'Remove Google Sheets credential? You can paste a new Service Account JSON after this.',
+      )
+    ) {
+      return;
+    }
+    this.removingGoogleSheets = true;
+    this.googleSheetsMsg.set(null);
+    this.googleSheetsErr.set(null);
+    this.api.clearGoogleSheetsCredentials().subscribe({
+      next: (res) => {
+        this.removingGoogleSheets = false;
+        this.googleSheetsReplacing.set(false);
+        this.googleSheetsJson = '';
+        if (res.stillConfigured) {
+          this.googleSheetsErr.set(res.message ?? 'Still configured via .env');
+        } else {
+          this.googleSheetsMsg.set(
+            res.message ?? 'Credential removed. Paste a new JSON to connect.',
+          );
+        }
+        this.refreshGoogleSheetsStatus();
+      },
+      error: (err) => {
+        this.removingGoogleSheets = false;
+        this.googleSheetsErr.set(
+          err?.error?.message ?? 'Remove failed — is the backend online?',
         );
       },
     });
@@ -1455,8 +1749,18 @@ export class PropertiesPanelComponent implements OnInit {
         ];
       case 'ai_agent':
         return [
-          { key: 'instructions', label: 'Agent Instructions', value: String(d['instructions'] ?? ''), type: 'textarea' },
-          { key: 'outputKey', label: 'Output Key', value: String(d['outputKey'] ?? 'aiResponse'), type: 'text' },
+          {
+            key: 'instructions',
+            label: 'Agent Instructions (chat personality)',
+            value: String(d['instructions'] ?? ''),
+            type: 'textarea',
+          },
+          {
+            key: 'outputKey',
+            label: 'Output Key',
+            value: String(d['outputKey'] ?? 'aiResponse'),
+            type: 'text',
+          },
         ];
       case 'chat_model':
         return [
@@ -1567,20 +1871,8 @@ export class PropertiesPanelComponent implements OnInit {
           },
         ];
       case 'slack':
-        return [
-          {
-            key: 'channel',
-            label: 'Channel (#name or ID)',
-            value: String(d['channel'] ?? '#general'),
-            type: 'text',
-          },
-          {
-            key: 'message',
-            label: 'Message (blank = auto sheet summary)',
-            value: String(d['message'] ?? ''),
-            type: 'textarea',
-          },
-        ];
+        // Channel + message are in the Slack panel above
+        return [];
       case 'condition':
         return [
           { key: 'field', label: 'Field', value: String(d['field'] ?? ''), type: 'text' },
@@ -1689,27 +1981,113 @@ export class PropertiesPanelComponent implements OnInit {
         ];
       case 'facebook':
         return [
-          { key: 'pageId', label: 'Facebook Page ID', value: String(d['pageId'] ?? ''), type: 'text' },
-          { key: 'accessToken', label: 'Page Access Token', value: String(d['accessToken'] ?? ''), type: 'text' },
-          { key: 'message', label: 'Caption / Message', value: String(d['message'] ?? '{{nextPost.message}}'), type: 'textarea' },
-          { key: 'imageUrl', label: 'Image URL (public HTTPS — for photo post)', value: String(d['imageUrl'] ?? '{{nextPost.imageUrl}}'), type: 'text' },
-          { key: 'link', label: 'Link (optional, text post only)', value: String(d['link'] ?? '{{nextPost.link}}'), type: 'text' },
-          { key: 'dryRun', label: 'Dry Run (true/false)', value: String(d['dryRun'] ?? 'true'), type: 'select', options: ['true', 'false'] },
+          {
+            key: 'pageId',
+            label: 'Facebook Page ID (personal profile API band hai — sirf Page)',
+            value: String(d['pageId'] ?? ''),
+            type: 'text',
+          },
+          {
+            key: 'accessToken',
+            label: 'Page Access Token (from /me/accounts)',
+            value: String(d['accessToken'] ?? ''),
+            type: 'text',
+          },
+          {
+            key: 'message',
+            label: 'Caption / Message',
+            value: String(d['message'] ?? '{{message}}'),
+            type: 'textarea',
+          },
+          {
+            key: 'imageUrl',
+            label: 'Image URL (public HTTPS) or leave blank → ImagePrompt',
+            value: String(d['imageUrl'] ?? '{{imageUrl}}'),
+            type: 'text',
+          },
+          {
+            key: 'link',
+            label: 'Link (optional, text post)',
+            value: String(d['link'] ?? '{{link}}'),
+            type: 'text',
+          },
+          {
+            key: 'dryRun',
+            label: 'Dry Run',
+            value: String(d['dryRun'] ?? 'false'),
+            type: 'select',
+            options: ['false', 'true'],
+          },
         ];
       case 'instagram':
         return [
-          { key: 'igUserId', label: 'Instagram Business User ID', value: String(d['igUserId'] ?? ''), type: 'text' },
-          { key: 'accessToken', label: 'Access Token', value: String(d['accessToken'] ?? ''), type: 'text' },
-          { key: 'caption', label: 'Caption', value: String(d['caption'] ?? '{{nextPost.message}}'), type: 'textarea' },
-          { key: 'imageUrl', label: 'Image URL (required)', value: String(d['imageUrl'] ?? '{{nextPost.imageUrl}}'), type: 'text' },
-          { key: 'dryRun', label: 'Dry Run (true/false)', value: String(d['dryRun'] ?? 'true'), type: 'select', options: ['true', 'false'] },
+          {
+            key: 'igUserId',
+            label: 'IG Business/Creator User ID (personal IG API nahi)',
+            value: String(d['igUserId'] ?? ''),
+            type: 'text',
+          },
+          {
+            key: 'accessToken',
+            label: 'Page Access Token (linked FB Page)',
+            value: String(d['accessToken'] ?? ''),
+            type: 'text',
+          },
+          {
+            key: 'caption',
+            label: 'Caption',
+            value: String(d['caption'] ?? '{{message}}'),
+            type: 'textarea',
+          },
+          {
+            key: 'imageUrl',
+            label: 'Image URL or blank → ImagePrompt',
+            value: String(d['imageUrl'] ?? '{{imageUrl}}'),
+            type: 'text',
+          },
+          {
+            key: 'dryRun',
+            label: 'Dry Run',
+            value: String(d['dryRun'] ?? 'false'),
+            type: 'select',
+            options: ['false', 'true'],
+          },
         ];
       case 'linkedin':
         return [
-          { key: 'accessToken', label: 'Access Token', value: String(d['accessToken'] ?? ''), type: 'text' },
-          { key: 'authorUrn', label: 'Author URN', value: String(d['authorUrn'] ?? ''), type: 'text' },
-          { key: 'text', label: 'Post Text', value: String(d['text'] ?? '{{nextPost.message}}'), type: 'textarea' },
-          { key: 'dryRun', label: 'Dry Run (true/false)', value: String(d['dryRun'] ?? 'true'), type: 'select', options: ['true', 'false'] },
+          {
+            key: 'accessToken',
+            label: 'LinkedIn Access Token (OAuth)',
+            value: String(d['accessToken'] ?? ''),
+            type: 'text',
+          },
+          {
+            key: 'postAs',
+            label: 'Post as',
+            value: String(d['postAs'] ?? 'person'),
+            type: 'select',
+            options: ['person', 'organization'],
+          },
+          {
+            key: 'authorUrn',
+            label:
+              'Author URN — person: urn:li:person:XXX · company: urn:li:organization:XXX',
+            value: String(d['authorUrn'] ?? ''),
+            type: 'text',
+          },
+          {
+            key: 'text',
+            label: 'Post Text',
+            value: String(d['text'] ?? '{{message}}'),
+            type: 'textarea',
+          },
+          {
+            key: 'dryRun',
+            label: 'Dry Run',
+            value: String(d['dryRun'] ?? 'false'),
+            type: 'select',
+            options: ['false', 'true'],
+          },
         ];
       case 'set':
         return [
@@ -1750,14 +2128,40 @@ export class PropertiesPanelComponent implements OnInit {
         ];
       case 'discord':
         return [
-          { key: 'webhookUrl', label: 'Discord Webhook URL', value: String(d['webhookUrl'] ?? ''), type: 'text' },
-          { key: 'content', label: 'Message', value: String(d['content'] ?? ''), type: 'textarea' },
+          {
+            key: 'webhookUrl',
+            label: 'Discord Channel Webhook URL (server channel, not personal DM)',
+            value: String(d['webhookUrl'] ?? ''),
+            type: 'text',
+          },
+          {
+            key: 'content',
+            label: 'Message',
+            value: String(d['content'] ?? '{{message}}'),
+            type: 'textarea',
+          },
         ];
       case 'telegram':
         return [
-          { key: 'botToken', label: 'Bot Token', value: String(d['botToken'] ?? ''), type: 'text' },
-          { key: 'chatId', label: 'Chat ID', value: String(d['chatId'] ?? ''), type: 'text' },
-          { key: 'text', label: 'Text', value: String(d['text'] ?? ''), type: 'textarea' },
+          {
+            key: 'botToken',
+            label: 'Bot Token (from @BotFather)',
+            value: String(d['botToken'] ?? ''),
+            type: 'text',
+          },
+          {
+            key: 'chatId',
+            label:
+              'Chat ID — personal: your user id · channel: -100… · group: -…',
+            value: String(d['chatId'] ?? ''),
+            type: 'text',
+          },
+          {
+            key: 'text',
+            label: 'Text / caption',
+            value: String(d['text'] ?? '{{message}}'),
+            type: 'textarea',
+          },
         ];
       case 'graphql':
         return [
@@ -1811,12 +2215,63 @@ export class PropertiesPanelComponent implements OnInit {
     if (!node || node.type !== 'schedule') return;
     const parsed =
       key === 'hour' || key === 'minute' ? Number(value) : value;
-    this.store.updateNodeData(node.id, { [key]: parsed });
-    this.store.syncScheduleCron(node.id);
+    const next = { ...node.data, [key]: parsed };
+    const interval = String(next['interval'] ?? 'daily');
+    const hour = Math.min(23, Math.max(0, Number(next['hour'] ?? 9)));
+    const minute = Math.min(59, Math.max(0, Number(next['minute'] ?? 0)));
+    let cron = `${minute} ${hour} * * *`;
+    if (interval === 'hourly') cron = '0 * * * *';
+    if (interval === 'every_minute') cron = '* * * * *';
+    this.store.updateNodeData(node.id, {
+      [key]: parsed,
+      interval,
+      hour,
+      minute,
+      cron,
+    });
+    // Keep label correct (users sometimes rename by mistake)
+    if (node.label !== 'Schedule') {
+      this.store.updateNodeLabel(node.id, 'Schedule');
+    }
   }
 
   protected buildScheduleSlack(): void {
     this.store.insertScheduleSlackTemplate(true);
+  }
+
+  protected dailySocialTarget:
+    | 'slack'
+    | 'facebook'
+    | 'instagram'
+    | 'telegram'
+    | 'discord'
+    | 'linkedin' = 'slack';
+
+  protected dailySocialTargetLabel(): string {
+    const map: Record<string, string> = {
+      slack: 'Slack',
+      facebook: 'Facebook',
+      instagram: 'Instagram',
+      telegram: 'Telegram',
+      discord: 'Discord',
+      linkedin: 'LinkedIn',
+    };
+    return map[this.dailySocialTarget] ?? 'Social';
+  }
+
+  protected buildScheduleDailySheetSlack(): void {
+    this.store.insertScheduleDailySheetSocialTemplate('slack', true);
+  }
+
+  protected buildScheduleDailySheetSocial(): void {
+    this.store.insertScheduleDailySheetSocialTemplate(
+      this.dailySocialTarget,
+      true,
+    );
+  }
+
+  protected buildScheduleAgentDailySheet(): void {
+    this.store.insertScheduleAgentDailySheetTemplate(true);
   }
 
   protected buildScheduleAgent(): void {
@@ -1853,6 +2308,21 @@ export class PropertiesPanelComponent implements OnInit {
         );
       },
     });
+  }
+
+  protected onNodeLabelChange(label: string): void {
+    const node = this.store.selectedNode();
+    if (!node) return;
+    // Don't let Slack be renamed to "Schedule" (hides time settings confusion)
+    if (node.type === 'slack' && label.trim().toLowerCase() === 'schedule') {
+      this.store.updateNodeLabel(node.id, 'Slack');
+      return;
+    }
+    if (node.type === 'schedule' && label.trim().toLowerCase() === 'slack') {
+      this.store.updateNodeLabel(node.id, 'Schedule');
+      return;
+    }
+    this.store.updateNodeLabel(node.id, label);
   }
 
   protected updateField(key: string, value: string): void {

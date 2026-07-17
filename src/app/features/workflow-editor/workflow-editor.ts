@@ -181,6 +181,10 @@ export class WorkflowEditor implements OnInit {
     const hasSchedule = this.store.nodes().some((n) => n.type === 'schedule');
     if (hasSchedule) {
       this.store.active.set(true);
+      // Ensure cron matches interval (every_minute → * * * * *) before persist
+      for (const n of this.store.nodes()) {
+        if (n.type === 'schedule') this.store.syncScheduleCron(n.id);
+      }
     }
 
     const body = {

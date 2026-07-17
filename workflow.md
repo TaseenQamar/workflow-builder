@@ -182,12 +182,12 @@ After sheet updates, email can include spreadsheet title + link.
 **Settings → Slack**:
 
 1. Create app at [api.slack.com/apps](https://api.slack.com/apps)  
-2. Bot scope: `chat:write`  
+2. Bot scopes: `chat:write` + `files:write` (for AI images)  
 3. Install → copy Bot User OAuth Token (`xoxb-…`)  
 4. Paste in Settings → **Save Slack** → **Send test**  
 5. Invite bot to the channel: `/invite @YourBot`  
 
-**Slack node** (right panel): channel + optional fixed Message. Token is never on the node.
+**Slack node** (right panel): channel + optional Message + optional **AI image** (generateImage + imagePrompt). Token is never on the node. **Groq cannot generate images** — OpenAI is used if quota exists, otherwise free Pollinations. Chat example: `Generate image of a sunset and post to Slack`.
 
 Daily notifications: use **Schedule → Slack** (or Schedule → Agent → tools), save the workflow so the scheduler can run it.
 
@@ -196,10 +196,21 @@ Daily notifications: use **Schedule → Slack** (or Schedule → Agent → tools
 ```
 Schedule (trigger) ──flow──► Slack
                      or
+Schedule (trigger) ──flow──► Google Sheets (read_next_daily) ──flow──► Slack
+                     or
 Schedule (trigger) ──flow──► AI Agent
                                 ├─ Chat Model
                                 └─ Tools (Sheets / Email / Slack)
 ```
+
+**Daily Sheet → Slack (two options):**
+
+1. **Direct:** `Schedule → Sheets → Slack` (no Agent)  
+2. **Agent + Prompt (recommended if you want prompt control):**  
+   `Schedule → AI Agent` with Sheets + Slack on **Tool** ports.  
+   Edit **Schedule Prompt** on the Agent right panel — that prompt runs at cron time (no chat).
+
+Sheet columns: `Message` | `ImagePrompt` (optional).
 
 In the editor: select empty canvas Properties → **Schedule → Slack** / **Schedule → AI Agent**, or drop a Schedule node and use **Quick structure** buttons.
 

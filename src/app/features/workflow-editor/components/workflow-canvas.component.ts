@@ -190,6 +190,18 @@ interface AddNodeMenuState {
                     <p class="mt-0.5 text-[10px] text-[#2BBFBA]">Tools Agent</p>
                   } @else if (node.type === 'chat_trigger') {
                     <p class="mt-0.5 text-[10px] text-rose-300">Prompt → Run workflow</p>
+                  } @else if (node.type === 'google_sheets') {
+                    <p class="mt-0.5 text-[10px] text-green-700">
+                      {{ sheetNodeSubtitle(node) }}
+                    </p>
+                  } @else if (node.type === 'slack') {
+                    <p class="mt-0.5 text-[10px] text-pink-700">
+                      {{ slackNodeSubtitle(node) }}
+                    </p>
+                  } @else if (node.type === 'schedule') {
+                    <p class="mt-0.5 text-[10px] text-amber-800">
+                      {{ scheduleNodeSubtitle(node) }}
+                    </p>
                   } @else if (canBeTool(node.type)) {
                     <p class="mt-0.5 text-[10px] text-teal-700">Top dot → Agent Tool</p>
                   } @else {
@@ -535,6 +547,26 @@ export class WorkflowCanvasComponent {
 
   protected canBeTool(type: CanvasNode['type']): boolean {
     return canAttachAsAgentTool(type);
+  }
+
+  protected sheetNodeSubtitle(node: CanvasNode): string {
+    const op = String(node.data['operation'] ?? '');
+    if (op === 'read_next_daily') return 'Daily next row';
+    return 'Sheet read / write';
+  }
+
+  protected slackNodeSubtitle(node: CanvasNode): string {
+    const ch = String(node.data['channel'] ?? '').trim();
+    return ch ? `→ ${ch}` : 'Set channel';
+  }
+
+  protected scheduleNodeSubtitle(node: CanvasNode): string {
+    const interval = String(node.data['interval'] ?? 'daily');
+    if (interval === 'every_minute') return 'Every minute';
+    if (interval === 'hourly') return 'Every hour';
+    const h = Number(node.data['hour'] ?? 9);
+    const m = Number(node.data['minute'] ?? 0);
+    return `Daily ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   }
 
   protected runStatus(nodeId: string): 'idle' | 'running' | 'success' | 'error' {

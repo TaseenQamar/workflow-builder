@@ -77,6 +77,7 @@ export class WorkflowEditorStore {
       (record.definition?.nodes ?? []).map((n) => this.apiNodeToCanvas(n)),
     );
     this.connections.set(record.definition?.connections ?? []);
+    this.normalizeScheduleNodes();
     this.selectedNodeId.set(null);
     this.connectSourceId.set(null);
     // Keep canvas Chat Model in sync with Settings (saved WF may still say openai)
@@ -1060,6 +1061,270 @@ export class WorkflowEditorStore {
   }
 
   /**
+   * Daily Google Sheet row → Slack (+ optional ImagePrompt column).
+   * Day 1 posts row 1, day 2 posts row 2, … (unposted queue).
+   */
+  insertScheduleDailySheetSlackTemplate(resetWorkflow = true): void {
+    this.insertScheduleDailySheetSocialTemplate('slack', resetWorkflow);
+  }
+
+  /**
+   * Same daily sheet queue, swap last node: slack | facebook | Instagram | telegram | discord | linkedin
+   */
+  insertScheduleDailySheetSocialTemplate(
+    socialType:
+      | 'slack'
+      | 'facebook'
+      | 'instagram'
+      | 'telegram'
+      | 'discord'
+      | 'linkedin' = 'slack',
+    resetWorkflow = true,
+  ): void {
+    const def = NODE_CATALOG.find((n) => n.type === socialType);
+    if (!def) {
+      this.message.set(`Unknown social type: ${socialType}`);
+      return;
+    }
+
+    const labels: Record<string, string> = {
+      slack: 'Slack',
+      facebook: 'Facebook',
+      instagram: 'Instagram',
+      telegram: 'Telegram',
+      discord: 'Discord',
+      linkedin: 'LinkedIn',
+    };
+    const socialLabel = labels[socialType] ?? def.label;
+
+    if (resetWorkflow) {
+      this.reset();
+      this.workflowName.set(`Daily Sheet → ${socialLabel}`);
+      this.description.set(
+        `Each day: next Google Sheet row → ${socialLabel} (Message | ImagePrompt | Post)`,
+      );
+    }
+    this.executionMode.set('LOCAL');
+    this.active.set(true);
+
+    const gap = NODE_WIDTH + NODE_HORIZONTAL_GAP;
+    const schedule = createNodeFromDefinition(
+      NODE_CATALOG.find((n) => n.type === 'schedule')!,
+      { x: 80, y: 200 },
+    );
+    schedule.data = {
+      ...schedule.data,
+      interval: 'daily',
+      hour: 9,
+      minute: 0,
+      timezone: 'Asia/Karachi',
+      cron: '0 9 * * *',
+    };
+
+    const sheets = createNodeFromDefinition(
+      NODE_CATALOG.find((n) => n.type === 'google_sheets')!,
+      { x: 80 + gap, y: 200 },
+    );
+    sheets.data = {
+      ...sheets.data,
+      operation: 'read_next_daily',
+      dailyPickMode: 'unposted',
+      postStatusColumn: 'Post',
+      requireAgent: 'false',
+      requireChatIntent: 'false',
+      dryRun: 'false',
+      spreadsheetId: '',
+      sheetName: '',
+    };
+
+    const social = createNodeFromDefinition(def, {
+      x: 80 + gap * 2,
+      y: 200,
+    });
+    // Sensible defaults for daily sheet → social
+    if (socialType === 'slack') {
+      social.data = {
+        ...social.data,
+        channel: '#general',
+        message: '{{message}}',
+        generateImage: 'false',
+      };
+    } else if (socialType === 'facebook') {
+      social.data = {
+        ...social.data,
+        message: '{{message}}',
+        link: '{{link}}',
+        imageUrl: '{{imageUrl}}',
+        dryRun: 'false',
+      };
+    } else if (socialType === 'instagram') {
+      social.data = {
+        ...social.data,
+        caption: '{{message}}',
+        imageUrl: '{{imageUrl}}',
+        dryRun: 'false',
+      };
+    } else if (socialType === 'telegram') {
+      social.data = {
+        ...social.data,
+        text: '{{message}}',
+      };
+    } else if (socialType === 'discord') {
+      social.data = {
+        ...social.data,
+        content: '{{message}}',
+      };
+    } else if (socialType === 'linkedin') {
+      social.data = {
+        ...social.data,
+        text: '{{message}}',
+        dryRun: 'false',
+      };
+    }
+
+    this.nodes.set([schedule, sheets, social]);
+    this.connections.set([
+      { from: schedule.id, to: sheets.id, output: 'main', kind: 'flow' },
+      { from: sheets.id, to: social.id, output: 'main', kind: 'flow' },
+    ]);
+    this.selectedNodeId.set(social.id);
+    this.message.set(
+      `Schedule → Sheets → ${socialLabel} ready. Set sheet URL + ${socialLabel} credentials, then Save.`,
+    );
+  }
+
+  /**
+   * Replace the last social node in an existing Schedule → Sheets → Social flow.
+   */
+  swapDailySheetSocialTarget(
+    socialType:
+      | 'slack'
+      | 'facebook'
+      | 'instagram'
+      | 'telegram'
+      | 'discord'
+      | 'linkedin',
+  ): void {
+    const nodes = this.nodes();
+    const sheets = nodes.find((n) => n.type === 'google_sheets');
+    const social = nodes.find((n) =>
+      ['slack', 'facebook', 'instagram', 'telegram', 'discord', 'linkedin'].includes(
+        n.type,
+      ),
+    );
+    if (!sheets || !social) {
+      this.insertScheduleDailySheetSocialTemplate(socialType, true);
+      return;
+    }
+    // Rebuild keeping sheet settings
+    const sheetData = { ...sheets.data };
+    const scheduleNode = nodes.find((n) => n.type === 'schedule');
+    const scheduleData = scheduleNode ? { ...scheduleNode.data } : null;
+
+    this.insertScheduleDailySheetSocialTemplate(socialType, true);
+    this.nodes.update((list) =>
+      list.map((n) => {
+        if (n.type === 'google_sheets') {
+          return { ...n, data: { ...n.data, ...sheetData } };
+        }
+        if (n.type === 'schedule' && scheduleData) {
+          return { ...n, data: { ...n.data, ...scheduleData } };
+        }
+        return n;
+      }),
+    );
+    this.message.set(
+      `Switched target to ${socialType}. Keep sheet settings; fill ${socialType} credentials, then Save.`,
+    );
+  }
+
+  /**
+   * Schedule → AI Agent; Sheets + Slack as Agent tools.
+   * Agent Schedule Prompt drives daily row → Slack (+ image).
+   */
+  insertScheduleAgentDailySheetTemplate(resetWorkflow = true): void {
+    if (resetWorkflow) {
+      this.reset();
+      this.workflowName.set('Daily Sheet via Agent');
+      this.description.set(
+        'Schedule → AI Agent; Agent uses Schedule Prompt + Sheets/Slack tools',
+      );
+    }
+    this.executionMode.set('LOCAL');
+    this.active.set(true);
+
+    const gap = NODE_WIDTH + NODE_HORIZONTAL_GAP;
+    const schedule = createNodeFromDefinition(
+      NODE_CATALOG.find((n) => n.type === 'schedule')!,
+      { x: 80, y: 200 },
+    );
+    schedule.data = {
+      ...schedule.data,
+      interval: 'daily',
+      hour: 9,
+      minute: 0,
+      timezone: 'Asia/Karachi',
+      cron: '0 9 * * *',
+    };
+
+    const agent = createNodeFromDefinition(
+      NODE_CATALOG.find((n) => n.type === 'ai_agent')!,
+      { x: 80 + gap, y: 160 },
+    );
+    agent.data = {
+      ...agent.data,
+      scheduledPrompt:
+        "Daily job: Call google_sheets to load today's next row (Message + optional ImagePrompt). Then call send_slack with that Message. If ImagePrompt is present, pass it as imagePrompt so an image is generated and posted to Slack. Do not wait for chat.",
+    };
+
+    const model = this.createChatModelNode({
+      x: 80 + gap + 40,
+      y: 160 + 170,
+    });
+
+    const sheets = createNodeFromDefinition(
+      NODE_CATALOG.find((n) => n.type === 'google_sheets')!,
+      { x: 80 + gap + 200, y: 380 },
+    );
+    sheets.data = {
+      ...sheets.data,
+      operation: 'read_next_daily',
+      dailyPickMode: 'unposted',
+      postStatusColumn: 'Post',
+      requireAgent: 'false',
+      requireChatIntent: 'false',
+      dryRun: 'false',
+      toolDescription:
+        'Load next unposted Google Sheet row (Post≠success), then Slack marks Post success/failed',
+    };
+
+    const slack = createNodeFromDefinition(
+      NODE_CATALOG.find((n) => n.type === 'slack')!,
+      { x: 80 + gap + 360, y: 380 },
+    );
+    slack.data = {
+      ...slack.data,
+      channel: '#general',
+      message: '{{message}}',
+      generateImage: 'false',
+      imagePrompt: '',
+    };
+
+    this.nodes.set([schedule, agent, model, sheets, slack]);
+    this.connections.set([
+      { from: schedule.id, to: agent.id, output: 'main', kind: 'flow' },
+      { from: model.id, to: agent.id, kind: 'config', targetPort: 'chatModel' },
+      { from: sheets.id, to: agent.id, kind: 'config', targetPort: 'tool' },
+      { from: slack.id, to: agent.id, kind: 'config', targetPort: 'tool' },
+    ]);
+    this.selectedNodeId.set(agent.id);
+    this.applyDefaultProviderToChatModels();
+    this.message.set(
+      'Schedule → Agent ready. Edit Schedule Prompt on Agent. Set Sheets URL + Slack channel, then Save.',
+    );
+  }
+
+  /**
    * Schedule → AI Agent (+ model) for timed agent runs.
    * Attach Sheets/Email/Slack as tools after if needed.
    */
@@ -1128,6 +1393,31 @@ export class WorkflowEditorStore {
     if (interval === 'every_minute') cron = '* * * * *';
 
     this.updateNodeData(nodeId, { hour, minute, cron, interval });
+  }
+
+  /** After load: map cron → interval so UI shows Every minute correctly. */
+  normalizeScheduleNodes(): void {
+    this.nodes.update((list) =>
+      list.map((n) => {
+        if (n.type !== 'schedule') return n;
+        const cron = String(n.data['cron'] ?? '').trim();
+        let interval = String(n.data['interval'] ?? 'daily');
+        if (cron === '* * * * *') interval = 'every_minute';
+        else if (cron === '0 * * * *') interval = 'hourly';
+        else if (interval !== 'hourly' && interval !== 'every_minute') {
+          interval = 'daily';
+        }
+        const label =
+          !n.label || n.label === 'Google Sheets' || n.label === 'Slack'
+            ? 'Schedule'
+            : n.label;
+        return {
+          ...n,
+          label,
+          data: { ...n.data, interval, cron: cron || n.data['cron'] },
+        };
+      }),
+    );
   }
 
   removeConnection(from: string, to: string, output?: string): void {
