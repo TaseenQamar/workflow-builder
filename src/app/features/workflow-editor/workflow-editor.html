@@ -134,9 +134,14 @@
       [running]="store.running()"
       [inputText]="store.chatInput()"
       [highlight]="store.chatPanelHighlight()"
+      [threads]="store.chatThreads()"
+      [activeChatId]="store.activeChatId()"
+      [chatTitle]="store.chatTitle()"
       (inputTextChange)="store.chatInput.set($event)"
       (send)="sendChat()"
       (newChat)="newChat()"
+      (deleteChat)="deleteChat()"
+      (selectChat)="switchChat($event)"
     />
   </div>
 </div>

@@ -112,8 +112,17 @@ export class Settings implements OnInit {
       return;
     }
     this.api.setApiBase(url);
-    this.backendUrl = this.api.apiOrigin;
+    this.backendUrl = this.api.apiOrigin || this.api.apiBase;
     this.saveMessage.set(`Backend URL saved: ${this.api.apiBase}`);
+    this.saveError.set(null);
+    this.refreshStatus();
+  }
+
+  /** Same Mac — use Angular proxy to localhost:3000 (no tunnel). */
+  protected useLocalBackend(): void {
+    this.api.setApiBase('/api');
+    this.backendUrl = '';
+    this.saveMessage.set('Using local backend (http://localhost:3000 via proxy)');
     this.saveError.set(null);
     this.refreshStatus();
   }

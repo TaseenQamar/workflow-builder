@@ -116,6 +116,7 @@ export interface ExecutionRecord {
   durationMs?: number;
   error?: string;
   output?: Record<string, unknown>;
+  triggerData?: Record<string, unknown>;
   workflow?: { id: string; name: string; executionMode?: string };
 }
 

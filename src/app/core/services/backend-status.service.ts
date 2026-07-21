@@ -77,11 +77,18 @@ export class BackendStatusService {
       this.lastError.set(null);
       return;
     }
+    const base = this.api.apiBase;
     const origin = this.api.apiOrigin;
     if (!origin) {
-      this.lastError.set(
-        'Backend API URL not set. Open Settings and paste your tunnel/backend URL.',
-      );
+      if (base.startsWith('/')) {
+        this.lastError.set(
+          'Local backend unreachable — run: cd workflow-build-backend && npm run start:dev',
+        );
+      } else {
+        this.lastError.set(
+          'Backend API URL not set. Open Settings and paste your tunnel/backend URL.',
+        );
+      }
     } else if (origin.includes('trycloudflare.com') || origin.includes('loca.lt')) {
       this.lastError.set(
         'Tunnel unreachable from this browser (often local DNS). 1) Open the tunnel /health URL in a new tab — must show status ok. 2) If it fails to load, set Mac DNS to 1.1.1.1 + 8.8.8.8, flush DNS, then re-open Vercel with the NEW ?api= URL from npm run wake (old trycloudflare links die after restart).',

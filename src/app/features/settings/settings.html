@@ -43,6 +43,13 @@
         >
           {{ checkingBackend() ? 'Checking…' : 'Retry' }}
         </button>
+        <button
+          type="button"
+          class="rounded-lg border border-emerald-400 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-900 hover:bg-emerald-100"
+          (click)="useLocalBackend()"
+        >
+          Use local backend
+        </button>
       </div>
       <p class="mt-2 text-xs text-[#757575]">
         Current: <code>{{ api.apiBase || '(not set)' }}</code>
@@ -426,14 +433,14 @@
           [(ngModel)]="slackTestChannel"
           placeholder="#general"
         />
-        <button
-          type="button"
+      <button
+        type="button"
           class="rounded-lg border border-[#CDDBD9] px-3 py-2 text-sm text-[#1A1A1A] hover:bg-[#F5FBFA] disabled:opacity-50"
           [disabled]="testingSlack"
           (click)="testPlatformSlack()"
         >
           {{ testingSlack ? 'Sending…' : 'Send test' }}
-        </button>
+      </button>
       </div>
     </section>
 

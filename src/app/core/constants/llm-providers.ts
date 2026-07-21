@@ -60,8 +60,8 @@ export const LLM_PROVIDER_PRESETS: LlmProviderPreset[] = [
     models: [
       'llama-3.1-8b-instant',
       'llama-3.3-70b-versatile',
-      'gemma2-9b-it',
-      'mixtral-8x7b-32768',
+      'openai/gpt-oss-20b',
+      'openai/gpt-oss-120b',
     ],
     hint: 'Fast free tier — console.groq.com',
     short: 'Free · fast',

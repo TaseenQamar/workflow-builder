@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { catchError, finalize, of, timeout } from 'rxjs';
 import { WorkflowEditorStore } from '../workflow-editor.store';
+import { WorkflowChatService } from '../workflow-chat.service';
 import { ApiService } from '../../../core/services/api.service';
 import {
   AiIntegrationStatus,
@@ -53,24 +54,58 @@ import {
             Connect nodes with <strong class="text-[#2BBFBA]">wires</strong> — they run in that order:
             Chat → HTTP → AI Agent. Type a prompt below and click <strong class="text-[#2BBFBA]">Chat</strong>.
           </p>
-          <div class="space-y-1.5 rounded-lg border border-amber-200 bg-amber-50 p-3">
-            <p class="text-[10px] font-semibold uppercase text-amber-800">
-              Daily post starter
+          <div class="space-y-1.5 rounded-lg border border-violet-200 bg-violet-50 p-3">
+            <p class="text-[10px] font-semibold uppercase text-violet-900">
+              LLM automation (recommended)
             </p>
             <p class="text-[10px] text-[#575757]">
-              Same sheet queue → Slack / Facebook / Instagram / Telegram / Discord / LinkedIn
+              Schedule → AI Agent → tools. LLM decides Sheets + social posts (imagePrompt included).
+            </p>
+            <label class="block text-[10px] font-medium text-[#757575]">Post to (Agent tool)</label>
+            <select
+              class="w-full rounded-lg border border-[#CDDBD9] bg-white px-2 py-1.5 text-xs"
+              [(ngModel)]="dailySocialTarget"
+            >
+              <option value="linkedin">LinkedIn</option>
+              <option value="slack">Slack</option>
+              <option value="facebook">Facebook</option>
+              <option value="instagram">Instagram</option>
+              <option value="telegram">Telegram</option>
+              <option value="discord">Discord</option>
+            </select>
+            <button
+              type="button"
+              class="w-full rounded-lg bg-violet-700 px-3 py-2 text-[11px] font-semibold text-white hover:bg-violet-800"
+              (click)="buildScheduleAgentDailySheet()"
+            >
+              Build Schedule → Agent → Sheet + {{ dailySocialTargetLabel() }}
+            </button>
+            <button
+              type="button"
+              class="w-full rounded-lg border border-violet-300 bg-white px-3 py-1.5 text-[11px] font-medium text-violet-900 hover:bg-violet-100"
+              (click)="buildScheduleAgent()"
+            >
+              Build Schedule → Agent only (add tools yourself)
+            </button>
+          </div>
+          <div class="space-y-1.5 rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <p class="text-[10px] font-semibold uppercase text-amber-800">
+              Direct (no LLM)
+            </p>
+            <p class="text-[10px] text-[#575757]">
+              Schedule → Sheet → Social — Agent skip. Use only if you do not want LLM.
             </p>
             <label class="block text-[10px] font-medium text-[#757575]">Post to</label>
             <select
               class="w-full rounded-lg border border-[#CDDBD9] bg-white px-2 py-1.5 text-xs"
               [(ngModel)]="dailySocialTarget"
             >
+              <option value="linkedin">LinkedIn</option>
               <option value="slack">Slack</option>
               <option value="facebook">Facebook</option>
               <option value="instagram">Instagram</option>
               <option value="telegram">Telegram</option>
               <option value="discord">Discord</option>
-              <option value="linkedin">LinkedIn</option>
             </select>
             <button
               type="button"
@@ -400,6 +435,214 @@ import {
             </div>
           }
 
+          @if (store.selectedNode()!.type === 'linkedin') {
+            <div class="space-y-3 rounded-lg border-2 border-sky-500 bg-sky-50 p-3 text-xs text-[#4A4A4A]">
+              <p class="text-sm font-bold text-sky-950">LinkedIn Post</p>
+              <p class="text-[10px] text-sky-900">
+                Neeche se <strong>Description column</strong> choose karo — usi sheet column ki value LinkedIn pe caption banegi.
+              </p>
+
+              <div class="rounded-lg border border-sky-400 bg-white p-2 space-y-2">
+                <label class="block text-[11px] font-bold uppercase tracking-wide text-sky-900">
+                  Description column (Google Sheet)
+                </label>
+                <select
+                  class="w-full rounded-lg border-2 border-sky-500 bg-[#F5FBFA] px-3 py-2.5 text-sm font-medium text-[#1A1A1A] outline-none focus:border-sky-700"
+                  [ngModel]="linkedinDescriptionColumn()"
+                  (ngModelChange)="onLinkedInDescriptionColumn($event)"
+                >
+                  @for (col of linkedinDescriptionOptions(); track col) {
+                    <option [value]="col">{{ col }}</option>
+                  }
+                </select>
+                <p class="text-[10px] text-[#575757]">
+                  Selected: <strong>{{ linkedinDescriptionColumn() }}</strong> — isi column se daily post text aayega.
+                </p>
+
+                <label class="mt-2 block text-[10px] font-semibold uppercase text-[#757575]">
+                  ImagePrompt column (optional)
+                </label>
+                <select
+                  class="w-full rounded-lg border border-sky-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-sky-500"
+                  [ngModel]="String(store.selectedNode()!.data['imagePromptColumn'] ?? '')"
+                  (ngModelChange)="updateField('imagePromptColumn', $event)"
+                >
+                  <option value="">— none / auto —</option>
+                  @for (col of linkedinDescriptionOptions(); track col) {
+                    <option [value]="col">{{ col }}</option>
+                  }
+                </select>
+
+                <button
+                  type="button"
+                  class="mt-1 w-full rounded-lg bg-sky-700 px-3 py-2 text-[11px] font-semibold text-white hover:bg-sky-800 disabled:opacity-50"
+                  [disabled]="loadingLiColumns"
+                  (click)="refreshLinkedInSheetColumns()"
+                >
+                  {{ loadingLiColumns ? 'Loading…' : '↻ Refresh columns from Google Sheets' }}
+                </button>
+                @if (liColumnsMsg()) {
+                  <p class="text-[10px] text-emerald-700">{{ liColumnsMsg() }}</p>
+                }
+                @if (liColumnsErr()) {
+                  <p class="text-[10px] text-red-600">{{ liColumnsErr() }}</p>
+                }
+              </div>
+
+              <div>
+                <label class="block text-[10px] font-semibold uppercase text-[#757575]">Access Token</label>
+                <input
+                  class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-white px-3 py-2 text-sm outline-none focus:border-sky-500"
+                  [ngModel]="String(store.selectedNode()!.data['accessToken'] ?? '')"
+                  (ngModelChange)="updateField('accessToken', $event)"
+                  placeholder="LinkedIn OAuth access token"
+                />
+              </div>
+              <div>
+                <label class="block text-[10px] font-semibold uppercase text-[#757575]">Post as</label>
+                <select
+                  class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-white px-2 py-1.5 text-xs outline-none focus:border-sky-500"
+                  [ngModel]="String(store.selectedNode()!.data['postAs'] ?? 'person')"
+                  (ngModelChange)="updateField('postAs', $event)"
+                >
+                  <option value="person">person</option>
+                  <option value="organization">organization</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[10px] font-semibold uppercase text-[#757575]">Author URN</label>
+                <input
+                  class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-white px-3 py-2 text-sm outline-none focus:border-sky-500"
+                  [ngModel]="String(store.selectedNode()!.data['authorUrn'] ?? '')"
+                  (ngModelChange)="updateField('authorUrn', $event)"
+                  placeholder="urn:li:person:XXX"
+                />
+              </div>
+              <div>
+                <label class="block text-[10px] font-semibold uppercase text-[#757575]">Dry Run</label>
+                <select
+                  class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-white px-2 py-1.5 text-xs outline-none focus:border-sky-500"
+                  [ngModel]="String(store.selectedNode()!.data['dryRun'] ?? 'false')"
+                  (ngModelChange)="updateField('dryRun', $event)"
+                >
+                  <option value="false">false (live post)</option>
+                  <option value="true">true (preview only)</option>
+                </select>
+              </div>
+            </div>
+          }
+
+          @if (store.selectedNode()!.type === 'facebook') {
+            <div class="space-y-3 rounded-lg border-2 border-blue-500 bg-blue-50 p-3 text-xs text-[#4A4A4A]">
+              <p class="text-sm font-bold text-blue-950">Facebook Page Post</p>
+              <p class="text-[10px] text-blue-900">
+                LinkedIn jaisa flow: <strong>Description column</strong> choose karo — usi sheet column ki value Facebook pe caption banegi.
+              </p>
+
+              <div class="rounded-lg border border-blue-400 bg-white p-2 space-y-2">
+                <label class="block text-[11px] font-bold uppercase tracking-wide text-blue-900">
+                  Description column (Google Sheet)
+                </label>
+                <select
+                  class="w-full rounded-lg border-2 border-blue-500 bg-[#F5FBFA] px-3 py-2.5 text-sm font-medium text-[#1A1A1A] outline-none focus:border-blue-700"
+                  [ngModel]="facebookDescriptionColumn()"
+                  (ngModelChange)="onFacebookDescriptionColumn($event)"
+                >
+                  @for (col of facebookDescriptionOptions(); track col) {
+                    <option [value]="col">{{ col }}</option>
+                  }
+                </select>
+                <p class="text-[10px] text-[#575757]">
+                  Selected: <strong>{{ facebookDescriptionColumn() }}</strong> — isi column se daily post text aayega.
+                </p>
+
+                <label class="mt-2 block text-[10px] font-semibold uppercase text-[#757575]">
+                  ImagePrompt column (optional)
+                </label>
+                <select
+                  class="w-full rounded-lg border border-blue-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-blue-500"
+                  [ngModel]="String(store.selectedNode()!.data['imagePromptColumn'] ?? '')"
+                  (ngModelChange)="updateField('imagePromptColumn', $event)"
+                >
+                  <option value="">— none / auto —</option>
+                  @for (col of facebookDescriptionOptions(); track col) {
+                    <option [value]="col">{{ col }}</option>
+                  }
+                </select>
+
+                <button
+                  type="button"
+                  class="mt-1 w-full rounded-lg bg-blue-700 px-3 py-2 text-[11px] font-semibold text-white hover:bg-blue-800 disabled:opacity-50"
+                  [disabled]="loadingFbColumns"
+                  (click)="refreshFacebookSheetColumns()"
+                >
+                  {{ loadingFbColumns ? 'Loading…' : '↻ Refresh columns from Google Sheets' }}
+                </button>
+                @if (fbColumnsMsg()) {
+                  <p class="text-[10px] text-emerald-700">{{ fbColumnsMsg() }}</p>
+                }
+                @if (fbColumnsErr()) {
+                  <p class="text-[10px] text-red-600">{{ fbColumnsErr() }}</p>
+                }
+              </div>
+
+              <div>
+                <label class="block text-[10px] font-semibold uppercase text-[#757575]">
+                  Facebook Page ID
+                </label>
+                <input
+                  class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-white px-3 py-2 text-sm outline-none focus:border-blue-500"
+                  [ngModel]="String(store.selectedNode()!.data['pageId'] ?? '')"
+                  (ngModelChange)="updateField('pageId', $event)"
+                  placeholder="Page ID (personal profile API nahi — sirf Page)"
+                />
+              </div>
+              <div>
+                <label class="block text-[10px] font-semibold uppercase text-[#757575]">
+                  Page Access Token
+                </label>
+                <input
+                  class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-white px-3 py-2 text-sm outline-none focus:border-blue-500"
+                  [ngModel]="String(store.selectedNode()!.data['accessToken'] ?? '')"
+                  (ngModelChange)="updateField('accessToken', $event)"
+                  placeholder="Long-lived Page token from /me/accounts"
+                />
+                <p class="mt-1 text-[10px] text-[#575757]">
+                  <strong>Page</strong> token chahiye (User token nahi). Steps:
+                  Graph Explorer → permissions
+                  <code class="rounded bg-white px-1">pages_manage_posts</code> +
+                  <code class="rounded bg-white px-1">pages_read_engagement</code>
+                  → Generate User token →
+                  <code class="rounded bg-white px-1">GET /me/accounts</code>
+                  → Page wala <code class="rounded bg-white px-1">access_token</code> copy → yahan paste.
+                  User token se <code class="rounded bg-white px-1">publish_actions</code> error aata hai.
+                </p>
+              </div>
+              <div>
+                <label class="block text-[10px] font-semibold uppercase text-[#757575]">
+                  Link (optional, text posts)
+                </label>
+                <input
+                  class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-white px-3 py-2 text-sm outline-none focus:border-blue-500"
+                  [ngModel]="String(store.selectedNode()!.data['link'] ?? '')"
+                  (ngModelChange)="updateField('link', $event)"
+                  placeholder="https://… or leave blank for sheet link"
+                />
+              </div>
+              <div>
+                <label class="block text-[10px] font-semibold uppercase text-[#757575]">Dry Run</label>
+                <select
+                  class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-white px-2 py-1.5 text-xs outline-none focus:border-blue-500"
+                  [ngModel]="String(store.selectedNode()!.data['dryRun'] ?? 'false')"
+                  (ngModelChange)="updateField('dryRun', $event)"
+                >
+                  <option value="false">false (live post)</option>
+                  <option value="true">true (preview only)</option>
+                </select>
+              </div>
+            </div>
+          }
+
           @if (store.selectedNode()!.type === 'schedule') {
             <div class="space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-[#4A4A4A]">
               <p class="font-semibold text-amber-900">Schedule</p>
@@ -409,14 +652,38 @@ import {
               </p>
 
               <label class="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-white px-3 py-2">
-                <span class="text-[11px] font-medium text-[#1A1A1A]">Active (cron on)</span>
+                <span class="text-[11px] font-medium text-[#1A1A1A]">
+                  {{ store.active() ? 'Posting ON (cron Active)' : 'Posting OFF (paused)' }}
+                </span>
                 <input
                   type="checkbox"
                   class="h-4 w-4 accent-[#2BBFBA]"
                   [ngModel]="store.active()"
-                  (ngModelChange)="store.active.set($event)"
+                  (ngModelChange)="onScheduleActiveToggle($event)"
                 />
               </label>
+              <p class="text-[10px] text-[#575757]">
+                Off = stop auto posts. Toggle + Save, or use Stop / Resume below (instant).
+              </p>
+
+              <div class="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  class="rounded-lg border border-red-400 bg-red-50 px-3 py-2 text-[11px] font-semibold text-red-900 hover:bg-red-100 disabled:opacity-50"
+                  [disabled]="pausingSchedule || !store.workflowId() || !store.active()"
+                  (click)="pauseSchedule()"
+                >
+                  {{ pausingSchedule ? 'Stopping…' : 'Stop posting' }}
+                </button>
+                <button
+                  type="button"
+                  class="rounded-lg border border-emerald-500 bg-emerald-50 px-3 py-2 text-[11px] font-semibold text-emerald-900 hover:bg-emerald-100 disabled:opacity-50"
+                  [disabled]="pausingSchedule || !store.workflowId() || store.active()"
+                  (click)="resumeSchedule()"
+                >
+                  {{ pausingSchedule ? '…' : 'Resume posting' }}
+                </button>
+              </div>
 
               <div>
                 <label class="block text-[10px] font-semibold uppercase text-[#757575]">When</label>
@@ -465,8 +732,10 @@ import {
 
               @if ((store.selectedNode()!.data['interval'] ?? '') === 'every_minute') {
                 <p class="rounded border border-amber-300 bg-white px-2 py-1.5 text-[10px] text-amber-900">
-                  Test mode: runs about once per minute. Set Slack channel + sheet, then top
-                  <strong>Save</strong>, or use <strong>Run now</strong>.
+                  Every minute: backend cron fires once per clock minute. Each LinkedIn/Facebook/Slack
+                  caption gets live time like <code>07/20 8:51 PM</code> (avoids duplicate).
+                  Need multiple sheet rows (Post ≠ success) for continuous posts. Top
+                  <strong>Save</strong> + Active, keep editor open to see results in Chat.
                 </p>
               }
 
@@ -648,9 +917,9 @@ import {
                   <div class="mt-2 space-y-2 rounded border border-green-200 bg-white p-2 text-[10px] text-[#575757]">
                     <p>
                       Loads the sheet, takes the <strong>first row where Post ≠ success</strong>,
-                      posts to Slack, then writes <code>success</code> or <code>failed</code>
+                      posts to social, then writes <code>success</code> or <code>failed</code>
                       in the <strong>Post</strong> column.
-                      Headers: <code>Message</code> | <code>ImagePrompt</code> (optional) | <code>Post</code>
+                      Default headers: <code>Message</code> | <code>ImagePrompt</code> | <code>Post</code>
                     </p>
                     <label class="block font-medium text-[#757575]">Pick mode</label>
                     <select
@@ -663,6 +932,20 @@ import {
                       <option value="day_of_month">Calendar day of month</option>
                       <option value="day_of_year">Day of year rotate</option>
                     </select>
+                    <label class="mt-1 block font-medium text-[#757575]">Caption / Message column</label>
+                    <input
+                      class="w-full rounded border border-[#CDDBD9] px-2 py-1 text-xs"
+                      [ngModel]="String(store.selectedNode()!.data['messageColumn'] ?? 'Message')"
+                      (ngModelChange)="updateField('messageColumn', $event)"
+                      placeholder="Message"
+                    />
+                    <label class="mt-1 block font-medium text-[#757575]">ImagePrompt column</label>
+                    <input
+                      class="w-full rounded border border-[#CDDBD9] px-2 py-1 text-xs"
+                      [ngModel]="String(store.selectedNode()!.data['imagePromptColumn'] ?? 'ImagePrompt')"
+                      (ngModelChange)="updateField('imagePromptColumn', $event)"
+                      placeholder="ImagePrompt"
+                    />
                     <label class="mt-1 block font-medium text-[#757575]">Post status column</label>
                     <input
                       class="w-full rounded border border-[#CDDBD9] px-2 py-1 text-xs"
@@ -973,6 +1256,7 @@ import {
 export class PropertiesPanelComponent implements OnInit {
   protected readonly store = inject(WorkflowEditorStore);
   private readonly api = inject(ApiService);
+  private readonly chat = inject(WorkflowChatService);
   readonly runChat = output<void>();
 
   /** Allow String(...) in template bindings (Angular strict template check). */
@@ -1039,6 +1323,18 @@ export class PropertiesPanelComponent implements OnInit {
   protected readonly slackChannelMsg = signal<string | null>(null);
   private lastSlackNodeId: string | null = null;
   private lastScheduleNodeId: string | null = null;
+  private lastLinkedInNodeId: string | null = null;
+  private lastFacebookNodeId: string | null = null;
+
+  protected readonly liSheetColumns = signal<string[]>([]);
+  protected readonly liColumnsMsg = signal<string | null>(null);
+  protected readonly liColumnsErr = signal<string | null>(null);
+  protected loadingLiColumns = false;
+
+  protected readonly fbSheetColumns = signal<string[]>([]);
+  protected readonly fbColumnsMsg = signal<string | null>(null);
+  protected readonly fbColumnsErr = signal<string | null>(null);
+  protected loadingFbColumns = false;
 
   private lastGsNodeId: string | null = null;
   private readonly _gsSelectEffect = effect(() => {
@@ -1062,6 +1358,24 @@ export class PropertiesPanelComponent implements OnInit {
       }
     } else {
       this.lastSlackNodeId = null;
+    }
+
+    if (node?.type === 'linkedin') {
+      if (node.id !== this.lastLinkedInNodeId) {
+        this.lastLinkedInNodeId = node.id;
+        this.hydrateLinkedInSheetColumns();
+      }
+    } else {
+      this.lastLinkedInNodeId = null;
+    }
+
+    if (node?.type === 'facebook') {
+      if (node.id !== this.lastFacebookNodeId) {
+        this.lastFacebookNodeId = node.id;
+        this.hydrateFacebookSheetColumns();
+      }
+    } else {
+      this.lastFacebookNodeId = null;
     }
 
     if (node?.type === 'schedule') {
@@ -1980,45 +2294,8 @@ export class PropertiesPanelComponent implements OnInit {
           },
         ];
       case 'facebook':
-        return [
-          {
-            key: 'pageId',
-            label: 'Facebook Page ID (personal profile API band hai — sirf Page)',
-            value: String(d['pageId'] ?? ''),
-            type: 'text',
-          },
-          {
-            key: 'accessToken',
-            label: 'Page Access Token (from /me/accounts)',
-            value: String(d['accessToken'] ?? ''),
-            type: 'text',
-          },
-          {
-            key: 'message',
-            label: 'Caption / Message',
-            value: String(d['message'] ?? '{{message}}'),
-            type: 'textarea',
-          },
-          {
-            key: 'imageUrl',
-            label: 'Image URL (public HTTPS) or leave blank → ImagePrompt',
-            value: String(d['imageUrl'] ?? '{{imageUrl}}'),
-            type: 'text',
-          },
-          {
-            key: 'link',
-            label: 'Link (optional, text post)',
-            value: String(d['link'] ?? '{{link}}'),
-            type: 'text',
-          },
-          {
-            key: 'dryRun',
-            label: 'Dry Run',
-            value: String(d['dryRun'] ?? 'false'),
-            type: 'select',
-            options: ['false', 'true'],
-          },
-        ];
+        // Custom Facebook panel above (Description column + credentials)
+        return [];
       case 'instagram':
         return [
           {
@@ -2054,41 +2331,8 @@ export class PropertiesPanelComponent implements OnInit {
           },
         ];
       case 'linkedin':
-        return [
-          {
-            key: 'accessToken',
-            label: 'LinkedIn Access Token (OAuth)',
-            value: String(d['accessToken'] ?? ''),
-            type: 'text',
-          },
-          {
-            key: 'postAs',
-            label: 'Post as',
-            value: String(d['postAs'] ?? 'person'),
-            type: 'select',
-            options: ['person', 'organization'],
-          },
-          {
-            key: 'authorUrn',
-            label:
-              'Author URN — person: urn:li:person:XXX · company: urn:li:organization:XXX',
-            value: String(d['authorUrn'] ?? ''),
-            type: 'text',
-          },
-          {
-            key: 'text',
-            label: 'Post Text',
-            value: String(d['text'] ?? '{{message}}'),
-            type: 'textarea',
-          },
-          {
-            key: 'dryRun',
-            label: 'Dry Run',
-            value: String(d['dryRun'] ?? 'false'),
-            type: 'select',
-            options: ['false', 'true'],
-          },
-        ];
+        // Custom LinkedIn panel above (Description column + credentials)
+        return [];
       case 'set':
         return [
           {
@@ -2207,8 +2451,76 @@ export class PropertiesPanelComponent implements OnInit {
   protected readonly scheduleHours = Array.from({ length: 24 }, (_, i) => i);
   protected readonly scheduleMinutes = [0, 5, 10, 15, 20, 30, 45];
   protected runningSchedule = false;
+  protected pausingSchedule = false;
   protected readonly scheduleRunMsg = signal<string | null>(null);
   protected readonly scheduleRunErr = signal<string | null>(null);
+
+  protected onScheduleActiveToggle(on: boolean): void {
+    this.store.active.set(on);
+    this.store.message.set(
+      on
+        ? 'Schedule ON — click top Save to resume auto posts'
+        : 'Schedule OFF — click top Save (or Stop posting) to pause',
+    );
+  }
+
+  protected pauseSchedule(): void {
+    const id = this.store.workflowId();
+    if (!id) {
+      this.scheduleRunErr.set('Save the workflow first, then Stop posting.');
+      return;
+    }
+    this.pausingSchedule = true;
+    this.scheduleRunErr.set(null);
+    this.scheduleRunMsg.set(null);
+    this.api.pauseSchedule(id).subscribe({
+      next: (res) => {
+        this.pausingSchedule = false;
+        if (res.ok === false) {
+          this.scheduleRunErr.set(res.error ?? 'Could not pause schedule');
+          return;
+        }
+        this.store.active.set(false);
+        this.scheduleRunMsg.set('Posting stopped — schedule paused');
+        this.store.message.set('Schedule paused — no more auto posts');
+      },
+      error: (err) => {
+        this.pausingSchedule = false;
+        this.scheduleRunErr.set(
+          err?.error?.message ?? err?.error?.error ?? 'Pause failed',
+        );
+      },
+    });
+  }
+
+  protected resumeSchedule(): void {
+    const id = this.store.workflowId();
+    if (!id) {
+      this.scheduleRunErr.set('Save the workflow first, then Resume.');
+      return;
+    }
+    this.pausingSchedule = true;
+    this.scheduleRunErr.set(null);
+    this.scheduleRunMsg.set(null);
+    this.api.resumeSchedule(id).subscribe({
+      next: (res) => {
+        this.pausingSchedule = false;
+        if (res.ok === false) {
+          this.scheduleRunErr.set(res.error ?? 'Could not resume schedule');
+          return;
+        }
+        this.store.active.set(true);
+        this.scheduleRunMsg.set('Posting resumed — cron Active');
+        this.store.message.set('Schedule resumed — auto posts on');
+      },
+      error: (err) => {
+        this.pausingSchedule = false;
+        this.scheduleRunErr.set(
+          err?.error?.message ?? err?.error?.error ?? 'Resume failed',
+        );
+      },
+    });
+  }
 
   protected updateScheduleField(key: string, value: string): void {
     const node = this.store.selectedNode();
@@ -2235,6 +2547,223 @@ export class PropertiesPanelComponent implements OnInit {
     }
   }
 
+  protected linkedinDescriptionColumn(): string {
+    const node = this.store.selectedNode();
+    const current = String(node?.data['captionColumn'] ?? '').trim();
+    return current || 'Message';
+  }
+
+  protected linkedinDescriptionOptions(): string[] {
+    const defaults = ['Message', 'Caption', 'Description', 'Text', 'Body', 'Content'];
+    const fromSheet = this.liSheetColumns();
+    const merged = [...fromSheet];
+    for (const d of defaults) {
+      if (!merged.some((h) => h.toLowerCase() === d.toLowerCase())) {
+        merged.push(d);
+      }
+    }
+    const selected = this.linkedinDescriptionColumn();
+    if (selected && !merged.some((h) => h === selected)) {
+      merged.unshift(selected);
+    }
+    return merged;
+  }
+
+  protected onLinkedInDescriptionColumn(column: string): void {
+    const col = String(column ?? '').trim();
+    this.updateField('captionColumn', col || 'Message');
+    // Keep text template pointing at message; Sheets sync fills message from this column
+    this.updateField('text', '{{message}}');
+    const sheets = this.findWorkflowSheetsNode();
+    if (sheets && col) {
+      this.store.updateNodeData(sheets.id, { messageColumn: col });
+    }
+  }
+
+  protected refreshLinkedInSheetColumns(): void {
+    this.hydrateLinkedInSheetColumns(true);
+  }
+
+  private findWorkflowSheetsNode() {
+    return this.store.nodes().find((n) => n.type === 'google_sheets') ?? null;
+  }
+
+  private hydrateLinkedInSheetColumns(forceApi = false): void {
+    this.liColumnsErr.set(null);
+    this.liColumnsMsg.set(null);
+    const sheets = this.findWorkflowSheetsNode();
+    if (!sheets) {
+      this.liSheetColumns.set([]);
+      this.liColumnsErr.set(
+        'Is workflow mein Google Sheets node nahi mila — pehle Sheets add/connect karo.',
+      );
+      return;
+    }
+
+    const cached = sheets.data['headersList'];
+    if (Array.isArray(cached) && cached.length && !forceApi) {
+      const headers = cached.map(String).filter(Boolean);
+      this.liSheetColumns.set(headers);
+      this.ensureLinkedInColumnDefaults(headers);
+      this.liColumnsMsg.set(
+        `${headers.length} column(s) Sheets node se (cached)`,
+      );
+      return;
+    }
+
+    const spreadsheetId = String(
+      sheets.data['spreadsheetId'] ?? sheets.data['documentId'] ?? '',
+    ).trim();
+    const sheetName = String(sheets.data['sheetName'] ?? '').trim();
+    if (!spreadsheetId || !sheetName) {
+      this.liSheetColumns.set([]);
+      this.liColumnsErr.set(
+        'Google Sheets pe Document URL + sheet tab set karke pehle columns load karo.',
+      );
+      return;
+    }
+
+    this.loadingLiColumns = true;
+    this.api.getGoogleSheetHeaders(spreadsheetId, sheetName).subscribe((res) => {
+      this.loadingLiColumns = false;
+      if (!res.ok) {
+        this.liSheetColumns.set([]);
+        this.liColumnsErr.set(res.message ?? 'Columns load failed');
+        return;
+      }
+      const headers = (res.headers ?? []).map(String).filter(Boolean);
+      this.liSheetColumns.set(headers);
+      this.store.updateNodeData(sheets.id, { headersList: headers });
+      this.ensureLinkedInColumnDefaults(headers);
+      this.liColumnsMsg.set(`${headers.length} column(s) loaded from sheet`);
+    });
+  }
+
+  private ensureLinkedInColumnDefaults(headers: string[]): void {
+    const node = this.store.selectedNode();
+    if (!node || node.type !== 'linkedin' || !headers.length) return;
+    const current = String(node.data['captionColumn'] ?? '').trim();
+    if (!current || !headers.includes(current)) {
+      const preferred =
+        headers.find((h) =>
+          /^(message|caption|description|text|body|content)$/i.test(h.trim()),
+        ) ?? headers[0];
+      this.onLinkedInDescriptionColumn(preferred);
+    }
+    const imgCol = String(node.data['imagePromptColumn'] ?? '').trim();
+    if (!imgCol || !headers.includes(imgCol)) {
+      const imgPreferred =
+        headers.find((h) => /imageprompt|image.?prompt|prompt/i.test(h)) ?? '';
+      this.updateField('imagePromptColumn', imgPreferred);
+    }
+  }
+
+  protected facebookDescriptionColumn(): string {
+    const node = this.store.selectedNode();
+    const current = String(node?.data['captionColumn'] ?? '').trim();
+    return current || 'Message';
+  }
+
+  protected facebookDescriptionOptions(): string[] {
+    const defaults = ['Message', 'Caption', 'Description', 'Text', 'Body', 'Content'];
+    const fromSheet = this.fbSheetColumns();
+    const merged = [...fromSheet];
+    for (const d of defaults) {
+      if (!merged.some((h) => h.toLowerCase() === d.toLowerCase())) {
+        merged.push(d);
+      }
+    }
+    const selected = this.facebookDescriptionColumn();
+    if (selected && !merged.some((h) => h === selected)) {
+      merged.unshift(selected);
+    }
+    return merged;
+  }
+
+  protected onFacebookDescriptionColumn(column: string): void {
+    const col = String(column ?? '').trim();
+    this.updateField('captionColumn', col || 'Message');
+    this.updateField('message', '{{message}}');
+    const sheets = this.findWorkflowSheetsNode();
+    if (sheets && col) {
+      this.store.updateNodeData(sheets.id, { messageColumn: col });
+    }
+  }
+
+  protected refreshFacebookSheetColumns(): void {
+    this.hydrateFacebookSheetColumns(true);
+  }
+
+  private hydrateFacebookSheetColumns(forceApi = false): void {
+    this.fbColumnsErr.set(null);
+    this.fbColumnsMsg.set(null);
+    const sheets = this.findWorkflowSheetsNode();
+    if (!sheets) {
+      this.fbSheetColumns.set([]);
+      this.fbColumnsErr.set(
+        'Is workflow mein Google Sheets node nahi mila — pehle Sheets add/connect karo.',
+      );
+      return;
+    }
+
+    const cached = sheets.data['headersList'];
+    if (Array.isArray(cached) && cached.length && !forceApi) {
+      const headers = cached.map(String).filter(Boolean);
+      this.fbSheetColumns.set(headers);
+      this.ensureFacebookColumnDefaults(headers);
+      this.fbColumnsMsg.set(
+        `${headers.length} column(s) Sheets node se (cached)`,
+      );
+      return;
+    }
+
+    const spreadsheetId = String(
+      sheets.data['spreadsheetId'] ?? sheets.data['documentId'] ?? '',
+    ).trim();
+    const sheetName = String(sheets.data['sheetName'] ?? '').trim();
+    if (!spreadsheetId || !sheetName) {
+      this.fbSheetColumns.set([]);
+      this.fbColumnsErr.set(
+        'Google Sheets pe Document URL + sheet tab set karke pehle columns load karo.',
+      );
+      return;
+    }
+
+    this.loadingFbColumns = true;
+    this.api.getGoogleSheetHeaders(spreadsheetId, sheetName).subscribe((res) => {
+      this.loadingFbColumns = false;
+      if (!res.ok) {
+        this.fbSheetColumns.set([]);
+        this.fbColumnsErr.set(res.message ?? 'Columns load failed');
+        return;
+      }
+      const headers = (res.headers ?? []).map(String).filter(Boolean);
+      this.fbSheetColumns.set(headers);
+      this.store.updateNodeData(sheets.id, { headersList: headers });
+      this.ensureFacebookColumnDefaults(headers);
+      this.fbColumnsMsg.set(`${headers.length} column(s) loaded from sheet`);
+    });
+  }
+
+  private ensureFacebookColumnDefaults(headers: string[]): void {
+    const node = this.store.selectedNode();
+    if (!node || node.type !== 'facebook' || !headers.length) return;
+    const current = String(node.data['captionColumn'] ?? '').trim();
+    if (!current || !headers.includes(current)) {
+      const preferred =
+        headers.find((h) =>
+          /^(message|caption|description|text|body|content)$/i.test(h.trim()),
+        ) ?? headers[0];
+      this.onFacebookDescriptionColumn(preferred);
+    }
+    const imgCol = String(node.data['imagePromptColumn'] ?? '').trim();
+    if (!imgCol || !headers.includes(imgCol)) {
+      const imgPreferred =
+        headers.find((h) => /imageprompt|image.?prompt|prompt/i.test(h)) ?? '';
+      this.updateField('imagePromptColumn', imgPreferred);
+    }
+  }
+
   protected buildScheduleSlack(): void {
     this.store.insertScheduleSlackTemplate(true);
   }
@@ -2245,7 +2774,7 @@ export class PropertiesPanelComponent implements OnInit {
     | 'instagram'
     | 'telegram'
     | 'discord'
-    | 'linkedin' = 'slack';
+    | 'linkedin' = 'linkedin';
 
   protected dailySocialTargetLabel(): string {
     const map: Record<string, string> = {
@@ -2271,7 +2800,10 @@ export class PropertiesPanelComponent implements OnInit {
   }
 
   protected buildScheduleAgentDailySheet(): void {
-    this.store.insertScheduleAgentDailySheetTemplate(true);
+    this.store.insertScheduleAgentDailySheetTemplate(
+      true,
+      this.dailySocialTarget,
+    );
   }
 
   protected buildScheduleAgent(): void {
@@ -2291,21 +2823,27 @@ export class PropertiesPanelComponent implements OnInit {
       next: (res) => {
         this.runningSchedule = false;
         if (res?.ok === false) {
-          this.scheduleRunErr.set(
-            res.error ?? 'Schedule not registered — Save with Schedule node first.',
-          );
+          const err =
+            res.error ?? 'Schedule not registered — Save with Schedule node first.';
+          this.scheduleRunErr.set(err);
+          this.store.addChatMessage('user', '⏱ Schedule — Run now');
+          this.store.addChatMessage('error', `❌ ${err}`);
           return;
         }
-        this.scheduleRunMsg.set(
-          'Ran without chat. Check Slack / Executions for result.',
-        );
-        this.store.message.set('Schedule ran now (no chat prompt).');
+        const exec = (res.result ?? {}) as Record<string, unknown>;
+        this.chat.announceExecutionToChat(exec, {
+          title: '⏱ Schedule — Run now',
+        });
+        this.scheduleRunMsg.set('Done — result is in the Chat panel below.');
+        this.store.message.set('Schedule ran — see Chat for post status');
       },
       error: (err) => {
         this.runningSchedule = false;
-        this.scheduleRunErr.set(
-          err?.error?.message ?? err?.error?.error ?? 'Run now failed',
-        );
+        const msg =
+          err?.error?.message ?? err?.error?.error ?? 'Run now failed';
+        this.scheduleRunErr.set(msg);
+        this.store.addChatMessage('user', '⏱ Schedule — Run now');
+        this.store.addChatMessage('error', `❌ ${msg}`);
       },
     });
   }

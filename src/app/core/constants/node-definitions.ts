@@ -194,15 +194,20 @@ export const NODE_CATALOG: NodeDefinition[] = [
   {
     type: 'facebook',
     label: 'Facebook Page Post',
-    description: 'Post text, link, or image (public HTTPS URL) to a Facebook Page',
+    description:
+      'Share on Facebook Page with caption + image (ImagePrompt → AI generate like LinkedIn)',
     icon: '📘',
     category: 'Social',
     defaultData: {
       pageId: '',
       accessToken: '',
+      captionColumn: 'Message',
       message: '{{message}}',
-      link: '{{link}}',
+      imagePromptColumn: 'ImagePrompt',
+      imageUrlColumn: '',
       imageUrl: '{{imageUrl}}',
+      imagePrompt: '{{imagePrompt}}',
+      link: '{{link}}',
       dryRun: 'false',
     },
   },
@@ -223,13 +228,19 @@ export const NODE_CATALOG: NodeDefinition[] = [
   {
     type: 'linkedin',
     label: 'LinkedIn Post',
-    description: 'Share a text update on LinkedIn',
+    description:
+      'Share on LinkedIn with caption + image (ImagePrompt → AI generate like Slack)',
     icon: '💼',
     category: 'Social',
     defaultData: {
       accessToken: '',
       authorUrn: '',
+      captionColumn: 'Message',
       text: '{{message}}',
+      imagePromptColumn: 'ImagePrompt',
+      imageUrlColumn: '',
+      imageUrl: '{{imageUrl}}',
+      imagePrompt: '{{imagePrompt}}',
       dryRun: 'false',
     },
   },
@@ -266,9 +277,9 @@ export const NODE_CATALOG: NodeDefinition[] = [
     defaultData: {
       agentType: 'tools',
       instructions:
-        'You are the Cluster Valley AI guide for this workflow. Always reply in the user\'s language. Explain the full Chat→Agent→Tools flow when asked. For hi/hello/thanks/small talk: reply only — do NOT call tools. Call google_sheets / send_email / send_slack only when the user clearly asks in this message. After a successful sheet write, also notify email/Slack if attached. Never invent Apps Script.',
+        'You are the Cluster Valley AI automation brain. Always reply in the user\'s language. Explain Chat→Agent→Tools when asked. For hi/hello/thanks: reply only — no tools. When the user (or Schedule Prompt) asks to post/read sheet/notify: call google_sheets then the attached social tool (linkedin / send_slack / facebook / …). If ImagePrompt exists, always pass imagePrompt. Never invent Apps Script.',
       scheduledPrompt:
-        'Daily job: Call google_sheets to load today\'s next row (Message + optional ImagePrompt). Then call send_slack with that Message. If ImagePrompt is present, pass it as imagePrompt so an image is generated and posted to Slack. Do not wait for chat.',
+        'Daily job (no chat): 1) Call google_sheets for today\'s next unposted row (Message + optional ImagePrompt). 2) Call the attached social tool (linkedin / send_slack / …) with that Message. 3) If ImagePrompt is present, pass imagePrompt so an AI image is generated and posted. Do not ask questions.',
       outputKey: 'aiResponse',
     },
   },

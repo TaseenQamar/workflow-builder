@@ -138,6 +138,30 @@ export class ApiService {
     }>(`${this.base}/schedules/${workflowId}/run-now`, {});
   }
 
+  /** Pause cron — stop automatic Facebook/LinkedIn posting. */
+  pauseSchedule(workflowId: string): Observable<{
+    ok?: boolean;
+    active?: boolean;
+    error?: string;
+  }> {
+    return this.http.post<{ ok?: boolean; active?: boolean; error?: string }>(
+      `${this.base}/schedules/${workflowId}/pause`,
+      {},
+    );
+  }
+
+  /** Resume cron posting. */
+  resumeSchedule(workflowId: string): Observable<{
+    ok?: boolean;
+    active?: boolean;
+    error?: string;
+  }> {
+    return this.http.post<{ ok?: boolean; active?: boolean; error?: string }>(
+      `${this.base}/schedules/${workflowId}/resume`,
+      {},
+    );
+  }
+
   listSchedules(): Observable<
     Array<{
       id: string;
@@ -326,10 +350,20 @@ export class ApiService {
   // ── Health ───────────────────────────────────────────
 
   checkBackendHealth(): Observable<boolean> {
-    if (!this.apiOrigin || this.apiOrigin.includes('REPLACE_WITH_BACKEND_URL')) {
+    const origin = this.apiOrigin;
+    if (origin.includes('REPLACE_WITH_BACKEND_URL')) {
       return of(false);
     }
-    return this.http.get<{ status: string }>(`${this.apiOrigin}/health`).pipe(
+    // Local dev: apiBase=/api → use proxied /health (same origin as Angular on :4200)
+    const healthUrl = origin
+      ? `${origin}/health`
+      : this.base.startsWith('/')
+        ? '/health'
+        : '';
+    if (!healthUrl) {
+      return of(false);
+    }
+    return this.http.get<{ status: string }>(healthUrl).pipe(
       map((r) => r.status === 'ok'),
       catchError(() => of(false)),
     );
@@ -406,6 +440,105 @@ export class ApiService {
         sessionKey,
       })
       .pipe(catchError(() => of({ cleared: false })));
+  }
+
+  listWorkflowChats(workflowId: string): Observable<
+    Array<{
+      id: string;
+      title: string;
+      updatedAt: string;
+      createdAt: string;
+      preview: string;
+      messageCount: number;
+    }>
+  > {
+    if (!this.base || !workflowId) return of([]);
+    return this.http
+      .get<
+        Array<{
+          id: string;
+          title: string;
+          updatedAt: string;
+          createdAt: string;
+          preview: string;
+          messageCount: number;
+        }>
+      >(`${this.base}/workflows/${workflowId}/chats`)
+      .pipe(catchError(() => of([])));
+  }
+
+  createWorkflowChat(
+    workflowId: string,
+    body?: {
+      title?: string;
+      messages?: Array<{ id: string; role: string; text: string; at?: string }>;
+    },
+  ): Observable<{
+    id: string;
+    title: string;
+    messages: Array<{ id: string; role: string; text: string; at?: string }>;
+    sessionKey: string;
+  }> {
+    if (!this.base || !workflowId) {
+      return of({
+        id: crypto.randomUUID(),
+        title: body?.title ?? 'New chat',
+        messages: body?.messages ?? [],
+        sessionKey: `local:${crypto.randomUUID()}`,
+      });
+    }
+    return this.http.post<{
+      id: string;
+      title: string;
+      messages: Array<{ id: string; role: string; text: string; at?: string }>;
+      sessionKey: string;
+    }>(`${this.base}/workflows/${workflowId}/chats`, body ?? {});
+  }
+
+  getWorkflowChat(
+    workflowId: string,
+    chatId: string,
+  ): Observable<{
+    id: string;
+    title: string;
+    messages: Array<{ id: string; role: string; text: string; at?: string }>;
+    sessionKey: string;
+  } | null> {
+    if (!this.base || !workflowId) return of(null);
+    return this.http
+      .get<{
+        id: string;
+        title: string;
+        messages: Array<{ id: string; role: string; text: string; at?: string }>;
+        sessionKey: string;
+      }>(`${this.base}/workflows/${workflowId}/chats/${chatId}`)
+      .pipe(catchError(() => of(null)));
+  }
+
+  saveWorkflowChat(
+    workflowId: string,
+    chatId: string,
+    body: {
+      title?: string;
+      messages?: Array<{ id: string; role: string; text: string; at?: string }>;
+    },
+  ): Observable<unknown> {
+    if (!this.base || !workflowId) return of({ saved: false });
+    return this.http
+      .put(`${this.base}/workflows/${workflowId}/chats/${chatId}`, body)
+      .pipe(catchError(() => of({ saved: false })));
+  }
+
+  deleteWorkflowChat(
+    workflowId: string,
+    chatId: string,
+  ): Observable<{ deleted: boolean }> {
+    if (!this.base || !workflowId) return of({ deleted: false });
+    return this.http
+      .delete<{ deleted: boolean }>(
+        `${this.base}/workflows/${workflowId}/chats/${chatId}`,
+      )
+      .pipe(catchError(() => of({ deleted: false })));
   }
 
   getGoogleSheetsStatus(): Observable<{

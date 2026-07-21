@@ -1,6 +1,7 @@
 import {
   Component,
   HostListener,
+  OnDestroy,
   effect,
   inject,
   OnInit,
@@ -32,7 +33,7 @@ import { isConfigNodeType, NodeType } from '../../core/models/workflow.models';
     class: 'flex h-full min-h-0 flex-col overflow-hidden',
   },
 })
-export class WorkflowEditor implements OnInit {
+export class WorkflowEditor implements OnInit, OnDestroy {
   private readonly api = inject(ApiService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -61,6 +62,8 @@ export class WorkflowEditor implements OnInit {
 
   ngOnInit(): void {
     this.syncPanelVisibility();
+    this.chat.startScheduleChatWatch();
+    this.chat.bindChatPersistence();
 
     const applyProvider = () => {
       this.api.getAiIntegrationStatus().subscribe((status) => {
@@ -79,6 +82,8 @@ export class WorkflowEditor implements OnInit {
           this.store.loadFromRecord(wf);
           applyProvider();
           this.addNodeFromQuery();
+          this.chat.loadChatsForWorkflow(wf.id);
+          this.chat.startScheduleChatWatch();
         },
         error: () => this.store.error.set('Failed to load workflow'),
       });
@@ -87,6 +92,12 @@ export class WorkflowEditor implements OnInit {
 
     this.store.ensureChatWorkflow();
     this.addNodeFromQuery();
+  }
+
+  ngOnDestroy(): void {
+    this.chat.saveActiveChat();
+    this.chat.unbindChatPersistence();
+    this.chat.stopScheduleChatWatch();
   }
 
   /** Node Library → Editor with ?add=set|http|… */
@@ -177,11 +188,13 @@ export class WorkflowEditor implements OnInit {
     this.store.error.set(null);
     this.store.message.set(null);
     this.store.ensureConnections();
+    this.store.applyDefaultProviderToChatModels();
+    // Keep Facebook/Sheets on AI Agent Tool port (do not rewrite whole canvas)
+    this.store.ensureAgentToolWiring();
 
     const hasSchedule = this.store.nodes().some((n) => n.type === 'schedule');
+    // Do NOT force Active on — user may have paused posting
     if (hasSchedule) {
-      this.store.active.set(true);
-      // Ensure cron matches interval (every_minute → * * * * *) before persist
       for (const n of this.store.nodes()) {
         if (n.type === 'schedule') this.store.syncScheduleCron(n.id);
       }
@@ -202,16 +215,27 @@ export class WorkflowEditor implements OnInit {
 
     req.subscribe({
       next: (wf) => {
+        const wasNew = !id;
         this.store.workflowId.set(wf.id);
         this.store.active.set(wf.active ?? true);
         this.store.saving.set(false);
         this.store.message.set(
           hasSchedule
-            ? 'Saved + schedule Active. Cron runs at the set time (no chat needed). Use “Run now” to test.'
+            ? this.store.active()
+              ? 'Saved — schedule Active (cron will post). Uncheck Active + Save to stop.'
+              : 'Saved — schedule PAUSED (no auto posts). Check Active + Save to resume.'
             : 'Workflow saved!',
         );
-        if (!id) {
+        if (wasNew) {
+          // Persist any in-progress chat onto this workflow, then list threads
+          this.chat.saveActiveChat();
+          this.chat.loadChatsForWorkflow(wf.id);
+          this.chat.startScheduleChatWatch();
           this.router.navigate(['/workflow-editor', wf.id], { replaceUrl: true });
+        } else {
+          this.chat.saveActiveChat();
+          this.chat.loadChatsForWorkflow(wf.id);
+          this.chat.startScheduleChatWatch();
         }
       },
       error: (err) => {
@@ -228,8 +252,15 @@ export class WorkflowEditor implements OnInit {
   }
 
   protected newChat(): void {
-    const oldSession = this.store.chatSessionId();
-    this.store.newChatSession();
-    this.api.clearChatMemory(oldSession).subscribe();
+    this.chat.createNewChat(true);
+  }
+
+  protected deleteChat(): void {
+    if (!confirm('Delete this chat permanently?')) return;
+    this.chat.deleteActiveChat();
+  }
+
+  protected switchChat(chatId: string): void {
+    this.chat.switchChat(chatId);
   }
 }

@@ -189,34 +189,166 @@ After sheet updates, email can include spreadsheet title + link.
 
 **Slack node** (right panel): channel + optional Message + optional **AI image** (generateImage + imagePrompt). Token is never on the node. **Groq cannot generate images** — OpenAI is used if quota exists, otherwise free Pollinations. Chat example: `Generate image of a sunset and post to Slack`.
 
-Daily notifications: use **Schedule → Slack** (or Schedule → Agent → tools), save the workflow so the scheduler can run it.
+Daily notifications: use **Schedule → Slack / LinkedIn / …** (or Schedule → Agent → tools), save the workflow so the scheduler can run it.
 
-### Schedule node structure
+---
+
+## 9b. Schedule — pura workflow (end-to-end)
+
+Schedule **time pe workflow chalaata hai**. Chat zaroori nahi. Canvas pe jo **flow wires** hain, backend **usi order** mein nodes chalata hai. Beech mein HTTP / webhook node **nahi** lagta.
+
+### Do shapes (dono valid)
+
+**A) LLM / Agent (recommended — saari automation LLM se)**
+
+```
+Schedule  ──flow──►  AI Agent
+                        ├─ config: Chat Model (Groq / OpenAI / …)   ← LLM yahan
+                        ├─ config: Memory (optional)
+                        └─ tools: Google Sheets + LinkedIn / Slack / …
+```
+
+- Schedule time pe Agent ko job deta hai (**Schedule Prompt**)
+- **LLM** soch ke tools call karta hai: pehle Sheets, phir social
+- ImagePrompt ho to LLM `imagePrompt` pass karta hai → handler image generate + post
+- Chat pe bhi same Agent — “sheet se row lo LinkedIn pe image ke sath post karo”
+
+Editor: empty canvas → **LLM automation** → Post to LinkedIn →  
+**Build Schedule → Agent → Sheet + LinkedIn**
+
+**B) Direct (no LLM)**
+
+```
+Schedule  ──flow──►  Google Sheets  ──flow──►  LinkedIn / Slack
+```
+
+- Agent skip — sirf handlers sequential
+- Tab use karo jab LLM nahi chahiye
+
+---
+
+### Peeche backend pe kya chalta hai (LLM / Agent flow)
+
+```
+1) Workflow SAVE
+   → Schedule cron DB mein sync + Workflow Active
+
+2) NestJS cron (har minute)
+   → time due? → runWorkflow (_scheduled=true)
+
+3) ExecutionEngine:
+   Schedule (pass-through)
+        ↓ flow
+   AI Agent
+        ├─ Chat Model = LLM (Groq / OpenAI / …)
+        └─ LLM tools call karta hai:
+              google_sheets  →  Google Sheets API
+              linkedin / send_slack / …  →  image gen + platform API
+        ↓
+   Post column → success | failed
+   (Agent tools miss kare to auto-invoke sheets→social bhi ho sakta hai)
+
+4) lastRunAt update
+```
+
+**Canvas wires (LLM flow):**
+- `Schedule ──flow──► AI Agent`
+- `Chat Model ──config──► Agent (chatModel)`
+- `Sheets ──config──► Agent (tool)`
+- `LinkedIn ──config──► Agent (tool)`
+
+Sheets/LinkedIn **Agent se seedha flow wire nahi** — **Tool port** pe. LLM unhe call karta hai.
+
+| Layer | Kaam |
+|-------|------|
+| Schedule | Clock / trigger |
+| Nest cron | Asal alarm |
+| **AI Agent + Chat Model** | **LLM brain — tools decide** |
+| Sheets / Social (tools) | APIs + Post mark |
+| Image gen | Social handler (Pollinations/OpenAI) — Groq text-only |
+
+Webhook alag: `POST /api/webhooks/...`. Schedule us se nahi guzarta.
+
+---
+
+### Editor mein kaise banao (LLM — tumhara case)
+
+1. Empty canvas → Properties → **LLM automation**  
+2. Post to: **LinkedIn** (ya Slack / …)  
+3. **Build Schedule → Agent → Sheet + LinkedIn**  
+4. **Chat Model**: Groq/OpenAI select (Settings / model node)  
+5. **Google Sheets** tool: credential + Document URL + `read_next_daily` + Dry Run `false`  
+6. **LinkedIn** tool: token + Author URN + Caption/ImagePrompt columns + Dry Run `false`  
+7. **AI Agent** → **Schedule Prompt** check/edit (LLM ki daily job)  
+8. Schedule: daily time + timezone → Workflow **Active** → **Save**  
+9. Test: **Run now** ya chat: *“sheet se next row lo aur LinkedIn pe image ke sath post karo”*  
+
+---
+
+### Sheet columns (daily queue)
+
+| Column | Kaam |
+|--------|------|
+| **Message** (ya tumhara caption column) | Post caption |
+| **ImagePrompt** (optional) | Is se AI image generate → social pe attach |
+| **ImageUrl** (optional) | Ready HTTPS image — generate skip |
+| **Post** | `success` / `failed` — next run pe `success` wali rows skip |
+
+Flow: pehli row jahan `Post ≠ success` → post → `Post` update → agli schedule pe agli row.
+
+**LinkedIn DUPLICATE_POST:** pehle se same text live ho to ab queue **success** maanti hai taake stuck na rahe. Retest ke liye naya caption / nayi row use karo, ya pehli row pe already `success` likh do.
+
+---
+
+### Schedule settings
+
+| Field | Example |
+|-------|---------|
+| Interval | `daily` / `hourly` / `every_minute` |
+| Hour / Minute | `9` / `0` → subah 9:00 |
+| Timezone | `Asia/Karachi` |
+| Cron | Auto sync on Save (`0 9 * * *`) |
+
+Manual API (optional): `POST /api/schedules/:workflowId/run-now`
+
+---
+
+### Kab kaunsa flow
+
+| Need | Use |
+|------|-----|
+| **Saari automation LLM se** (tumhara case) | **A) Agent** — Schedule → Agent → tools |
+| Chat + schedule same brain | **A) Agent** |
+| Bina LLM, sirf fixed sequence | **B) Direct** Schedule → Sheets → Social |
+| Bahar se HTTP trigger | Webhook node |
+
+---
+
+### Checklist (schedule chal nahi raha?)
+
+- [ ] Workflow **Saved** + **Active**  
+- [ ] Schedule → Sheets → Social **flow** wires connected  
+- [ ] Sheets `read_next_daily`, dryRun `false`  
+- [ ] Sheet mein unposted row (`Post` empty / not success)  
+- [ ] Social credentials + dryRun `false`  
+- [ ] Backend running (Nest watch)  
+- [ ] Executions / backend logs: Schedule → Sheets → Social  
+
+---
+
+### Schedule node structure (short)
 
 ```
 Schedule (trigger) ──flow──► Slack
                      or
-Schedule (trigger) ──flow──► Google Sheets (read_next_daily) ──flow──► Slack
+Schedule (trigger) ──flow──► Google Sheets (read_next_daily) ──flow──► Slack / LinkedIn / …
                      or
 Schedule (trigger) ──flow──► AI Agent
                                 ├─ Chat Model
-                                └─ Tools (Sheets / Email / Slack)
+                                └─ Tools (Sheets / Email / Slack / LinkedIn)
 ```
 
-**Daily Sheet → Slack (two options):**
-
-1. **Direct:** `Schedule → Sheets → Slack` (no Agent)  
-2. **Agent + Prompt (recommended if you want prompt control):**  
-   `Schedule → AI Agent` with Sheets + Slack on **Tool** ports.  
-   Edit **Schedule Prompt** on the Agent right panel — that prompt runs at cron time (no chat).
-
-Sheet columns: `Message` | `ImagePrompt` (optional).
-
-In the editor: select empty canvas Properties → **Schedule → Slack** / **Schedule → AI Agent**, or drop a Schedule node and use **Quick structure** buttons.
-
-Settings on Schedule: Interval (daily / hourly / every minute), hour, minute, timezone, **Workflow Active**. Cron syncs automatically.
-
-**Important — no chat needed:** After **Save**, the backend cron runs the flow at that time by itself (Slack / Email / tools). Use **Run now (no chat)** to test immediately. Chat prompt is not required for Schedule flows.
+**Important — no chat needed:** After **Save**, the backend cron runs the flow at that time by itself. Use **Run now (no chat)** to test immediately.
 
 ---
 
