@@ -220,8 +220,34 @@ export const NODE_CATALOG: NodeDefinition[] = [
     defaultData: {
       igUserId: '',
       accessToken: '',
+      captionColumn: 'Message',
+      imagePromptColumn: 'ImagePrompt',
+      imageUrlColumn: '',
       caption: '{{message}}',
       imageUrl: '{{imageUrl}}',
+      imagePrompt: '{{imagePrompt}}',
+      dryRun: 'false',
+    },
+  },
+  {
+    type: 'whatsapp',
+    label: 'WhatsApp Message',
+    description:
+      'Send text/image via WhatsApp Cloud API (Phone Number ID + recipient)',
+    icon: '💬',
+    category: 'Social',
+    defaultData: {
+      phoneNumberId: '',
+      accessToken: '',
+      to: '',
+      captionColumn: 'Message',
+      message: '{{message}}',
+      imagePromptColumn: 'ImagePrompt',
+      imageUrlColumn: '',
+      imageUrl: '{{imageUrl}}',
+      imagePrompt: '{{imagePrompt}}',
+      templateName: '',
+      templateLanguage: 'en_US',
       dryRun: 'false',
     },
   },
@@ -706,6 +732,7 @@ export function nodeColor(type: NodeType): string {
     google_sheets: 'border-green-400 bg-green-50',
     facebook: 'border-blue-400 bg-blue-50',
     instagram: 'border-pink-400 bg-pink-50',
+    whatsapp: 'border-emerald-500 bg-emerald-50',
     linkedin: 'border-sky-400 bg-sky-50',
   };
   return map[type] ?? 'border-[#CDDBD9] bg-white';

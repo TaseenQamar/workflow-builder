@@ -316,8 +316,8 @@ export class WorkflowChatService {
 
     this.store.ensureChatWorkflow();
     this.store.ensureConversationAgent(); // Chat → AI Agent
-    this.store.ensureAgentCentricFlow(); // Agent → Sheets → Email (no bypass)
-    this.store.ensureConnections();
+    // Sheets = tool; Facebook/LinkedIn = after Agent (do not rewire every message aggressively)
+    this.store.ensureAgentToolWiring();
     this.store.applyDefaultProviderToChatModels();
 
     const validationErrors = this.store.validateWorkflowForRun();
@@ -671,6 +671,28 @@ export class WorkflowChatService {
               ),
       },
       {
+        key: 'whatsapp',
+        label: 'WhatsApp',
+        ok: (p) => p['posted'] === true || p['sent'] === true,
+        detail: (p) => {
+          if (p['dryRun'] === true) {
+            return `dry-run: ${String(p['hint'] ?? 'preview only')}`;
+          }
+          if (p['posted'] === true || p['sent'] === true) {
+            return p['imagePosted']
+              ? `sent with image to ${String(p['to'] ?? '')}`
+              : `sent to ${String(p['to'] ?? '')}`;
+          }
+          const err = p['error'] ?? p['reason'] ?? p['imageError'] ?? p['hint'];
+          return err
+            ? String(typeof err === 'string' ? err : JSON.stringify(err)).slice(
+                0,
+                280,
+              )
+            : 'not sent';
+        },
+      },
+      {
         key: 'telegram',
         label: 'Telegram',
         ok: (p) => p['posted'] === true || p['sent'] === true || p['ok'] === true,
@@ -694,8 +716,9 @@ export class WorkflowChatService {
     for (const plat of platforms) {
       const raw = output[plat.key];
       if (!raw || typeof raw !== 'object') continue;
-      hasSocial = true;
       const p = raw as Record<string, unknown>;
+      if (p['skipped'] === true) continue; // greeting / no post intent — hide
+      hasSocial = true;
       const ok = plat.ok(p);
       const detail = plat.detail(p);
       lines.push(`${ok ? '✅' : '❌'} ${plat.label}: ${detail}`);
@@ -717,12 +740,18 @@ export class WorkflowChatService {
       );
     }
 
-    const dailySheet =
-      gs &&
-      gs['skipped'] !== true &&
-      (gs['operation'] === 'read_next_daily' || !!next);
+    // Casual / skipped social: no Caption spam
+    if (output['_skipDownstreamSocial'] === true && !hasSocial && !hasSheetMark) {
+      return '';
+    }
 
-    // Casual chat (hi / how are you): no social/sheet post → no Caption spam
+    const dailySheet =
+      !!gs &&
+      gs['skipped'] !== true &&
+      (gs['operation'] === 'read_next_daily' || !!next) &&
+      output['_skipDownstreamSocial'] !== true &&
+      hasSocial;
+
     if (!hasSocial && !hasSheetMark && !dailySheet) {
       return '';
     }

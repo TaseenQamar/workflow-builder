@@ -324,10 +324,11 @@ export class WorkflowEditorStore {
   }
 
   /**
-   * Keep n8n-style wiring without rewriting the whole canvas:
-   * - Schedule/Chat → AI Agent (flow)
-   * - Sheets / Facebook / LinkedIn / … → Agent Tool port only
-   * If tools are already correctly wired, leave connections alone.
+   * Correct flow:
+   * - Schedule/Chat → AI Agent (main)
+   * - Google Sheets (+ Email) → Agent Tool port (data only)
+   * - Facebook / LinkedIn / Slack / … → after Agent on main flow
+   *   Agent loads sheet data, then the next social node posts it.
    */
   ensureAgentToolWiring(): void {
     const nodes = this.nodes();
@@ -337,17 +338,19 @@ export class WorkflowEditorStore {
     if (!agent) return;
     if (!chat && !schedule) return;
 
-    const toolTypes = new Set([
-      'google_sheets',
-      'email',
-      'slack',
-      'linkedin',
+    /** Only these are Agent tools — social is NEVER a tool. */
+    const dataToolTypes = new Set(['google_sheets', 'email']);
+    const socialTypes = new Set([
       'facebook',
+      'linkedin',
+      'slack',
       'instagram',
+      'whatsapp',
       'telegram',
       'discord',
     ]);
-    const toolNodes = nodes.filter((n) => toolTypes.has(n.type));
+    const dataTools = nodes.filter((n) => dataToolTypes.has(n.type));
+    const socialNodes = nodes.filter((n) => socialTypes.has(n.type));
 
     let conns = [...this.connections()];
     let changed = false;
@@ -384,13 +387,13 @@ export class WorkflowEditorStore {
       changed = true;
     }
 
-    for (const t of toolNodes) {
+    // Sheets / Email → Agent Tool port
+    for (const t of dataTools) {
       const onMain = conns.some(
         (c) =>
           c.kind !== 'config' && (c.from === t.id || c.to === t.id),
       );
       if (!isAgentTool(t.id)) {
-        // Move onto Agent Tool port (remove main-flow wires into/out of this node)
         conns = conns.filter(
           (c) =>
             !(c.kind !== 'config' && (c.from === t.id || c.to === t.id)),
@@ -403,7 +406,6 @@ export class WorkflowEditorStore {
         });
         changed = true;
       } else if (onMain) {
-        // Already a tool — drop duplicate main-flow wires only
         conns = conns.filter(
           (c) =>
             !(c.kind !== 'config' && (c.from === t.id || c.to === t.id)),
@@ -412,9 +414,49 @@ export class WorkflowEditorStore {
       }
     }
 
-    // Schedule: Sheets must queue next unposted row (clear sticky chat row pin)
+    // Social: remove Tool-port wires; put on main flow Agent → Social
+    for (const s of socialNodes) {
+      const asTool = isAgentTool(s.id);
+      if (asTool) {
+        conns = conns.filter(
+          (c) =>
+            !(
+              c.from === s.id &&
+              c.to === agent.id &&
+              c.kind === 'config' &&
+              c.targetPort === 'tool'
+            ),
+        );
+        changed = true;
+      }
+      // Drop other main wires into social (except from agent)
+      const hadOtherMain = conns.some(
+        (c) =>
+          c.kind !== 'config' &&
+          c.to === s.id &&
+          c.from !== agent.id,
+      );
+      if (hadOtherMain) {
+        conns = conns.filter(
+          (c) =>
+            !(c.kind !== 'config' && c.to === s.id && c.from !== agent.id),
+        );
+        changed = true;
+      }
+      if (!hasFlow(agent.id, s.id)) {
+        conns.push({
+          from: agent.id,
+          to: s.id,
+          output: 'main',
+          kind: 'flow',
+        });
+        changed = true;
+      }
+    }
+
+    // Schedule: Sheets queue next unposted row
     if (schedule) {
-      for (const s of toolNodes.filter((n) => n.type === 'google_sheets')) {
+      for (const s of dataTools.filter((n) => n.type === 'google_sheets')) {
         this.nodes.update((list) =>
           list.map((n) =>
             n.id === s.id
@@ -438,7 +480,7 @@ export class WorkflowEditorStore {
     if (changed) this.connections.set(conns);
   }
 
-  /** Alias — keeps Facebook/Sheets on AI Agent Tool port without full canvas rewrite. */
+  /** Alias — Sheets as tool; Facebook/LinkedIn/Slack after Agent on flow. */
   ensureAgentCentricFlow(): void {
     this.ensureAgentToolWiring();
   }
@@ -1153,6 +1195,7 @@ export class WorkflowEditorStore {
       | 'slack'
       | 'facebook'
       | 'instagram'
+      | 'whatsapp'
       | 'telegram'
       | 'discord'
       | 'linkedin' = 'slack',
@@ -1168,6 +1211,7 @@ export class WorkflowEditorStore {
       slack: 'Slack',
       facebook: 'Facebook',
       instagram: 'Instagram',
+      whatsapp: 'WhatsApp',
       telegram: 'Telegram',
       discord: 'Discord',
       linkedin: 'LinkedIn',
@@ -1243,7 +1287,22 @@ export class WorkflowEditorStore {
       social.data = {
         ...social.data,
         caption: '{{message}}',
+        captionColumn: 'Message',
+        imagePromptColumn: 'ImagePrompt',
         imageUrl: '{{imageUrl}}',
+        imagePrompt: '{{imagePrompt}}',
+        dryRun: 'false',
+      };
+    } else if (socialType === 'whatsapp') {
+      social.data = {
+        ...social.data,
+        message: '{{message}}',
+        captionColumn: 'Message',
+        imagePromptColumn: 'ImagePrompt',
+        imageUrl: '{{imageUrl}}',
+        imagePrompt: '{{imagePrompt}}',
+        templateName: '',
+        templateLanguage: 'en_US',
         dryRun: 'false',
       };
     } else if (socialType === 'telegram') {
@@ -1287,6 +1346,7 @@ export class WorkflowEditorStore {
       | 'slack'
       | 'facebook'
       | 'instagram'
+      | 'whatsapp'
       | 'telegram'
       | 'discord'
       | 'linkedin',
@@ -1294,7 +1354,7 @@ export class WorkflowEditorStore {
     const nodes = this.nodes();
     const sheets = nodes.find((n) => n.type === 'google_sheets');
     const social = nodes.find((n) =>
-      ['slack', 'facebook', 'instagram', 'telegram', 'discord', 'linkedin'].includes(
+      ['slack', 'facebook', 'instagram', 'whatsapp', 'telegram', 'discord', 'linkedin'].includes(
         n.type,
       ),
     );
@@ -1325,8 +1385,8 @@ export class WorkflowEditorStore {
   }
 
   /**
-   * Schedule → AI Agent; Sheets + Social as Agent tools (LLM drives everything).
-   * Agent Schedule Prompt → google_sheets → linkedin/slack/…
+   * Schedule → AI Agent → Social (flow).
+   * Only Google Sheets is an Agent tool (loads row). Agent passes data to Facebook/LinkedIn/….
    */
   insertScheduleAgentDailySheetTemplate(
     resetWorkflow = true,
@@ -1334,6 +1394,7 @@ export class WorkflowEditorStore {
       | 'slack'
       | 'facebook'
       | 'instagram'
+      | 'whatsapp'
       | 'telegram'
       | 'discord'
       | 'linkedin' = 'linkedin',
@@ -1342,23 +1403,18 @@ export class WorkflowEditorStore {
       slack: 'Slack',
       facebook: 'Facebook',
       instagram: 'Instagram',
+      whatsapp: 'WhatsApp',
       telegram: 'Telegram',
       discord: 'Discord',
       linkedin: 'LinkedIn',
     };
     const label = socialLabel[socialType] ?? 'Social';
-    const toolName =
-      socialType === 'slack'
-        ? 'send_slack'
-        : socialType === 'linkedin'
-          ? 'linkedin'
-          : socialType;
 
     if (resetWorkflow) {
       this.reset();
       this.workflowName.set(`Daily Sheet via Agent → ${label}`);
       this.description.set(
-        `Schedule → AI Agent (LLM); tools: Sheets + ${label}`,
+        `Schedule → AI Agent; Sheets tool loads row; Agent → ${label} posts it`,
       );
     }
     this.executionMode.set('LOCAL');
@@ -1385,8 +1441,8 @@ export class WorkflowEditorStore {
     agent.data = {
       ...agent.data,
       instructions:
-        'You are the automation brain for this workflow. On schedule and in chat: use attached tools to read Google Sheets and post to social. Never invent data. If ImagePrompt exists, always pass imagePrompt to the social tool so an image is generated and posted.',
-      scheduledPrompt: `Daily job (no chat): 1) Call google_sheets to load today's next unposted row (Message + optional ImagePrompt). 2) Call ${toolName} with that Message as message/caption. 3) If ImagePrompt is present, pass it as imagePrompt so an AI image is generated and posted with the caption. Do not ask questions. Do not wait for a user.`,
+        `You are the automation brain. Use the google_sheets tool to load the next unposted sheet row (Message + ImagePrompt). Do NOT invent data. The workflow then sends that data to ${label} on the next node — you do not call ${label} as a tool.`,
+      scheduledPrompt: `Daily job: Call google_sheets once to load the next unposted row (Message + optional ImagePrompt). Do not ask questions. After the tool returns, stop — ${label} receives the row from the Agent on the main flow.`,
     };
 
     const model = this.createChatModelNode({
@@ -1408,7 +1464,7 @@ export class WorkflowEditorStore {
       requireAgent: 'false',
       requireChatIntent: 'false',
       dryRun: 'false',
-      toolDescription: `Load next unposted Google Sheet row (Post≠success) for ${label}; social tool marks Post success/failed`,
+      toolDescription: `Load next unposted Google Sheet row (Post≠success). Agent passes Message/ImagePrompt to ${label} on the flow.`,
     };
 
     const socialDef = NODE_CATALOG.find((n) => n.type === socialType);
@@ -1417,8 +1473,8 @@ export class WorkflowEditorStore {
       return;
     }
     const social = createNodeFromDefinition(socialDef, {
-      x: 80 + gap + 360,
-      y: 380,
+      x: 80 + gap + 420,
+      y: 160,
     });
 
     if (socialType === 'slack') {
@@ -1454,7 +1510,22 @@ export class WorkflowEditorStore {
       social.data = {
         ...social.data,
         caption: '{{message}}',
+        captionColumn: 'Message',
+        imagePromptColumn: 'ImagePrompt',
         imageUrl: '{{imageUrl}}',
+        imagePrompt: '{{imagePrompt}}',
+        dryRun: 'false',
+      };
+    } else if (socialType === 'whatsapp') {
+      social.data = {
+        ...social.data,
+        message: '{{message}}',
+        captionColumn: 'Message',
+        imagePromptColumn: 'ImagePrompt',
+        imageUrl: '{{imageUrl}}',
+        imagePrompt: '{{imagePrompt}}',
+        templateName: '',
+        templateLanguage: 'en_US',
         dryRun: 'false',
       };
     } else if (socialType === 'telegram') {
@@ -1474,12 +1545,13 @@ export class WorkflowEditorStore {
       { from: schedule.id, to: agent.id, output: 'main', kind: 'flow' },
       { from: model.id, to: agent.id, kind: 'config', targetPort: 'chatModel' },
       { from: sheets.id, to: agent.id, kind: 'config', targetPort: 'tool' },
-      { from: social.id, to: agent.id, kind: 'config', targetPort: 'tool' },
+      // Social after Agent — NOT a tool
+      { from: agent.id, to: social.id, output: 'main', kind: 'flow' },
     ]);
     this.selectedNodeId.set(agent.id);
     this.applyDefaultProviderToChatModels();
     this.message.set(
-      `LLM flow ready: Schedule → Agent → Sheets + ${label} tools. Edit Schedule Prompt, set credentials, Save.`,
+      `Flow ready: Schedule → Agent → ${label}. Sheets = tool only. Save when ready.`,
     );
   }
 

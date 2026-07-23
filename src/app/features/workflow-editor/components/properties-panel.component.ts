@@ -59,9 +59,9 @@ import {
               LLM automation (recommended)
             </p>
             <p class="text-[10px] text-[#575757]">
-              Schedule → AI Agent → tools. LLM decides Sheets + social posts (imagePrompt included).
+              Schedule → AI Agent → Facebook/LinkedIn (flow). Sheets = Agent tool only (loads row).
             </p>
-            <label class="block text-[10px] font-medium text-[#757575]">Post to (Agent tool)</label>
+            <label class="block text-[10px] font-medium text-[#757575]">Post to (after Agent)</label>
             <select
               class="w-full rounded-lg border border-[#CDDBD9] bg-white px-2 py-1.5 text-xs"
               [(ngModel)]="dailySocialTarget"
@@ -70,6 +70,7 @@ import {
               <option value="slack">Slack</option>
               <option value="facebook">Facebook</option>
               <option value="instagram">Instagram</option>
+              <option value="whatsapp">WhatsApp</option>
               <option value="telegram">Telegram</option>
               <option value="discord">Discord</option>
             </select>
@@ -78,7 +79,7 @@ import {
               class="w-full rounded-lg bg-violet-700 px-3 py-2 text-[11px] font-semibold text-white hover:bg-violet-800"
               (click)="buildScheduleAgentDailySheet()"
             >
-              Build Schedule → Agent → Sheet + {{ dailySocialTargetLabel() }}
+              Build Schedule → Agent → {{ dailySocialTargetLabel() }} (Sheets tool)
             </button>
             <button
               type="button"
@@ -104,6 +105,7 @@ import {
               <option value="slack">Slack</option>
               <option value="facebook">Facebook</option>
               <option value="instagram">Instagram</option>
+              <option value="whatsapp">WhatsApp</option>
               <option value="telegram">Telegram</option>
               <option value="discord">Discord</option>
             </select>
@@ -536,7 +538,8 @@ import {
             <div class="space-y-3 rounded-lg border-2 border-blue-500 bg-blue-50 p-3 text-xs text-[#4A4A4A]">
               <p class="text-sm font-bold text-blue-950">Facebook Page Post</p>
               <p class="text-[10px] text-blue-900">
-                LinkedIn jaisa flow: <strong>Description column</strong> choose karo — usi sheet column ki value Facebook pe caption banegi.
+                Wire: <strong>AI Agent → Facebook</strong> (main flow). Sheets is Agent <strong>tool</strong> only — Agent loads the row, then Facebook posts it.
+                Description column = caption (usually <strong>Message</strong>, not Date).
               </p>
 
               <div class="rounded-lg border border-blue-400 bg-white p-2 space-y-2">
@@ -594,8 +597,13 @@ import {
                   class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-white px-3 py-2 text-sm outline-none focus:border-blue-500"
                   [ngModel]="String(store.selectedNode()!.data['pageId'] ?? '')"
                   (ngModelChange)="updateField('pageId', $event)"
-                  placeholder="Page ID (personal profile API nahi — sirf Page)"
+                  placeholder="Page ID from your public Page URL"
                 />
+                <p class="mt-1 text-[10px] text-amber-900">
+                  Public link jaisa ID hona chahiye. Example:
+                  <code class="rounded bg-white px-1">facebook.com/profile.php?id=61591984531067</code>
+                  → Page ID = <strong>61591984531067</strong>. Galat ID pe posts sirf admin ko dikhti hain / dusri page pe chali jati hain.
+                </p>
               </div>
               <div>
                 <label class="block text-[10px] font-semibold uppercase text-[#757575]">
@@ -637,6 +645,238 @@ import {
                   (ngModelChange)="updateField('dryRun', $event)"
                 >
                   <option value="false">false (live post)</option>
+                  <option value="true">true (preview only)</option>
+                </select>
+              </div>
+            </div>
+          }
+
+          @if (store.selectedNode()!.type === 'instagram') {
+            <div class="space-y-3 rounded-lg border-2 border-pink-500 bg-pink-50 p-3 text-xs text-[#4A4A4A]">
+              <p class="text-sm font-bold text-pink-950">Instagram Post</p>
+              <p class="text-[10px] text-pink-900">
+                Wire: <strong>AI Agent → Instagram</strong> (main flow). Sheets = Agent <strong>tool</strong> only —
+                Agent loads the row, then Instagram posts it.
+                Description column = caption (usually <strong>Message</strong>, not Date).
+              </p>
+
+              <div class="rounded-lg border border-pink-400 bg-white p-2 space-y-2">
+                <label class="block text-[11px] font-bold uppercase tracking-wide text-pink-900">
+                  Description column (Google Sheet)
+                </label>
+                <select
+                  class="w-full rounded-lg border-2 border-pink-500 bg-[#FDF5F8] px-3 py-2.5 text-sm font-medium text-[#1A1A1A] outline-none focus:border-pink-700"
+                  [ngModel]="instagramDescriptionColumn()"
+                  (ngModelChange)="onInstagramDescriptionColumn($event)"
+                >
+                  @for (col of instagramDescriptionOptions(); track col) {
+                    <option [value]="col">{{ col }}</option>
+                  }
+                </select>
+                <p class="text-[10px] text-[#575757]">
+                  Selected: <strong>{{ instagramDescriptionColumn() }}</strong> — isi column se Instagram caption aayega.
+                </p>
+
+                <label class="mt-2 block text-[10px] font-semibold uppercase text-[#757575]">
+                  ImagePrompt column (optional)
+                </label>
+                <select
+                  class="w-full rounded-lg border border-pink-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-pink-500"
+                  [ngModel]="String(store.selectedNode()!.data['imagePromptColumn'] ?? '')"
+                  (ngModelChange)="updateField('imagePromptColumn', $event)"
+                >
+                  <option value="">— none / auto —</option>
+                  @for (col of instagramDescriptionOptions(); track col) {
+                    <option [value]="col">{{ col }}</option>
+                  }
+                </select>
+
+                <button
+                  type="button"
+                  class="mt-1 w-full rounded-lg bg-pink-700 px-3 py-2 text-[11px] font-semibold text-white hover:bg-pink-800 disabled:opacity-50"
+                  [disabled]="loadingIgColumns"
+                  (click)="refreshInstagramSheetColumns()"
+                >
+                  {{ loadingIgColumns ? 'Loading…' : '↻ Refresh columns from Google Sheets' }}
+                </button>
+                @if (igColumnsMsg()) {
+                  <p class="text-[10px] text-emerald-700">{{ igColumnsMsg() }}</p>
+                }
+                @if (igColumnsErr()) {
+                  <p class="text-[10px] text-red-600">{{ igColumnsErr() }}</p>
+                }
+              </div>
+
+              <div>
+                <label class="block text-[10px] font-semibold uppercase text-[#757575]">
+                  Instagram Business User ID
+                </label>
+                <input
+                  class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-white px-3 py-2 text-sm outline-none focus:border-pink-500"
+                  [ngModel]="String(store.selectedNode()!.data['igUserId'] ?? '')"
+                  (ngModelChange)="updateField('igUserId', $event)"
+                  placeholder="IG Business/Creator ID (not username)"
+                />
+                <p class="mt-1 text-[10px] text-amber-900">
+                  Graph Explorer:
+                  <code class="rounded bg-white px-1">GET /me/accounts?fields=id,name,access_token,instagram_business_account</code>
+                  → nested <code class="rounded bg-white px-1">instagram_business_account.id</code> copy (Page id nahi).
+                </p>
+              </div>
+              <div>
+                <label class="block text-[10px] font-semibold uppercase text-[#757575]">
+                  Page Access Token (linked Facebook Page)
+                </label>
+                <input
+                  class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-white px-3 py-2 text-sm outline-none focus:border-pink-500"
+                  [ngModel]="String(store.selectedNode()!.data['accessToken'] ?? '')"
+                  (ngModelChange)="updateField('accessToken', $event)"
+                  placeholder="Same Page token that owns the IG account"
+                />
+                <p class="mt-1 text-[10px] text-[#575757]">
+                  Permissions:
+                  <code class="rounded bg-white px-1">instagram_basic</code>,
+                  <code class="rounded bg-white px-1">instagram_content_publish</code>,
+                  <code class="rounded bg-white px-1">pages_show_list</code>.
+                </p>
+              </div>
+              <div>
+                <label class="block text-[10px] font-semibold uppercase text-[#757575]">Dry Run</label>
+                <select
+                  class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-white px-2 py-1.5 text-xs outline-none focus:border-pink-500"
+                  [ngModel]="String(store.selectedNode()!.data['dryRun'] ?? 'false')"
+                  (ngModelChange)="updateField('dryRun', $event)"
+                >
+                  <option value="false">false (live post)</option>
+                  <option value="true">true (preview only)</option>
+                </select>
+              </div>
+            </div>
+          }
+
+
+          @if (store.selectedNode()!.type === 'whatsapp') {
+            <div class="space-y-3 rounded-lg border-2 border-emerald-600 bg-emerald-50 p-3 text-xs text-[#4A4A4A]">
+              <p class="text-sm font-bold text-emerald-950">WhatsApp Message</p>
+              <p class="text-[10px] text-emerald-900">
+                Wire: <strong>AI Agent → WhatsApp</strong> (main flow). Sheets = Agent <strong>tool</strong> only —
+                Agent loads the row, then WhatsApp sends it (Cloud API).
+                Description column = message text (usually <strong>Message</strong>).
+              </p>
+
+              <div class="rounded-lg border border-emerald-500 bg-white p-2 space-y-2">
+                <label class="block text-[11px] font-bold uppercase tracking-wide text-emerald-900">
+                  Description column (Google Sheet)
+                </label>
+                <select
+                  class="w-full rounded-lg border-2 border-emerald-600 bg-[#F0FDF4] px-3 py-2.5 text-sm font-medium text-[#1A1A1A] outline-none focus:border-emerald-800"
+                  [ngModel]="whatsappDescriptionColumn()"
+                  (ngModelChange)="onWhatsAppDescriptionColumn($event)"
+                >
+                  @for (col of whatsappDescriptionOptions(); track col) {
+                    <option [value]="col">{{ col }}</option>
+                  }
+                </select>
+                <p class="text-[10px] text-[#575757]">
+                  Selected: <strong>{{ whatsappDescriptionColumn() }}</strong> — isi column se WhatsApp text aayega.
+                </p>
+
+                <label class="mt-2 block text-[10px] font-semibold uppercase text-[#757575]">
+                  ImagePrompt column (optional)
+                </label>
+                <select
+                  class="w-full rounded-lg border border-emerald-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-emerald-600"
+                  [ngModel]="String(store.selectedNode()!.data['imagePromptColumn'] ?? '')"
+                  (ngModelChange)="updateField('imagePromptColumn', $event)"
+                >
+                  <option value="">— none / auto —</option>
+                  @for (col of whatsappDescriptionOptions(); track col) {
+                    <option [value]="col">{{ col }}</option>
+                  }
+                </select>
+
+                <button
+                  type="button"
+                  class="mt-1 w-full rounded-lg bg-emerald-700 px-3 py-2 text-[11px] font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
+                  [disabled]="loadingWaColumns"
+                  (click)="refreshWhatsAppSheetColumns()"
+                >
+                  {{ loadingWaColumns ? 'Loading…' : '↻ Refresh columns from Google Sheets' }}
+                </button>
+                @if (waColumnsMsg()) {
+                  <p class="text-[10px] text-emerald-700">{{ waColumnsMsg() }}</p>
+                }
+                @if (waColumnsErr()) {
+                  <p class="text-[10px] text-red-600">{{ waColumnsErr() }}</p>
+                }
+              </div>
+
+              <div>
+                <label class="block text-[10px] font-semibold uppercase text-[#757575]">
+                  Phone Number ID
+                </label>
+                <input
+                  class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600"
+                  [ngModel]="String(store.selectedNode()!.data['phoneNumberId'] ?? '')"
+                  (ngModelChange)="updateField('phoneNumberId', $event)"
+                  placeholder="From Meta → WhatsApp → API Setup"
+                />
+              </div>
+              <div>
+                <label class="block text-[10px] font-semibold uppercase text-[#757575]">
+                  Access Token
+                </label>
+                <input
+                  class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600"
+                  [ngModel]="String(store.selectedNode()!.data['accessToken'] ?? '')"
+                  (ngModelChange)="updateField('accessToken', $event)"
+                  placeholder="Temporary or permanent Cloud API token"
+                />
+              </div>
+              <div>
+                <label class="block text-[10px] font-semibold uppercase text-[#757575]">
+                  To (recipient)
+                </label>
+                <input
+                  class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600"
+                  [ngModel]="String(store.selectedNode()!.data['to'] ?? '')"
+                  (ngModelChange)="updateField('to', $event)"
+                  placeholder="923001234567 (country code, digits only)"
+                />
+                <p class="mt-1 text-[10px] text-[#575757]">
+                  E.164 without +. Test number must be added in Meta if app is in Development mode.
+                </p>
+              </div>
+              <div>
+                <label class="block text-[10px] font-semibold uppercase text-[#757575]">
+                  Template Name (optional)
+                </label>
+                <input
+                  class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600"
+                  [ngModel]="String(store.selectedNode()!.data['templateName'] ?? '')"
+                  (ngModelChange)="updateField('templateName', $event)"
+                  placeholder="hello_world — required outside 24h window"
+                />
+              </div>
+              <div>
+                <label class="block text-[10px] font-semibold uppercase text-[#757575]">
+                  Template Language
+                </label>
+                <input
+                  class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600"
+                  [ngModel]="String(store.selectedNode()!.data['templateLanguage'] ?? 'en_US')"
+                  (ngModelChange)="updateField('templateLanguage', $event)"
+                  placeholder="en_US"
+                />
+              </div>
+              <div>
+                <label class="block text-[10px] font-semibold uppercase text-[#757575]">Dry Run</label>
+                <select
+                  class="mt-1 w-full rounded-lg border border-[#CDDBD9] bg-white px-2 py-1.5 text-xs outline-none focus:border-emerald-600"
+                  [ngModel]="String(store.selectedNode()!.data['dryRun'] ?? 'false')"
+                  (ngModelChange)="updateField('dryRun', $event)"
+                >
+                  <option value="false">false (live send)</option>
                   <option value="true">true (preview only)</option>
                 </select>
               </div>
@@ -1325,6 +1565,8 @@ export class PropertiesPanelComponent implements OnInit {
   private lastScheduleNodeId: string | null = null;
   private lastLinkedInNodeId: string | null = null;
   private lastFacebookNodeId: string | null = null;
+  private lastInstagramNodeId: string | null = null;
+  private lastWhatsAppNodeId: string | null = null;
 
   protected readonly liSheetColumns = signal<string[]>([]);
   protected readonly liColumnsMsg = signal<string | null>(null);
@@ -1335,6 +1577,16 @@ export class PropertiesPanelComponent implements OnInit {
   protected readonly fbColumnsMsg = signal<string | null>(null);
   protected readonly fbColumnsErr = signal<string | null>(null);
   protected loadingFbColumns = false;
+
+  protected readonly igSheetColumns = signal<string[]>([]);
+  protected readonly igColumnsMsg = signal<string | null>(null);
+  protected readonly igColumnsErr = signal<string | null>(null);
+  protected loadingIgColumns = false;
+
+  protected readonly waSheetColumns = signal<string[]>([]);
+  protected readonly waColumnsMsg = signal<string | null>(null);
+  protected readonly waColumnsErr = signal<string | null>(null);
+  protected loadingWaColumns = false;
 
   private lastGsNodeId: string | null = null;
   private readonly _gsSelectEffect = effect(() => {
@@ -1376,6 +1628,24 @@ export class PropertiesPanelComponent implements OnInit {
       }
     } else {
       this.lastFacebookNodeId = null;
+    }
+
+    if (node?.type === 'instagram') {
+      if (node.id !== this.lastInstagramNodeId) {
+        this.lastInstagramNodeId = node.id;
+        this.hydrateInstagramSheetColumns();
+      }
+    } else {
+      this.lastInstagramNodeId = null;
+    }
+
+    if (node?.type === 'whatsapp') {
+      if (node.id !== this.lastWhatsAppNodeId) {
+        this.lastWhatsAppNodeId = node.id;
+        this.hydrateWhatsAppSheetColumns();
+      }
+    } else {
+      this.lastWhatsAppNodeId = null;
     }
 
     if (node?.type === 'schedule') {
@@ -2297,39 +2567,11 @@ export class PropertiesPanelComponent implements OnInit {
         // Custom Facebook panel above (Description column + credentials)
         return [];
       case 'instagram':
-        return [
-          {
-            key: 'igUserId',
-            label: 'IG Business/Creator User ID (personal IG API nahi)',
-            value: String(d['igUserId'] ?? ''),
-            type: 'text',
-          },
-          {
-            key: 'accessToken',
-            label: 'Page Access Token (linked FB Page)',
-            value: String(d['accessToken'] ?? ''),
-            type: 'text',
-          },
-          {
-            key: 'caption',
-            label: 'Caption',
-            value: String(d['caption'] ?? '{{message}}'),
-            type: 'textarea',
-          },
-          {
-            key: 'imageUrl',
-            label: 'Image URL or blank → ImagePrompt',
-            value: String(d['imageUrl'] ?? '{{imageUrl}}'),
-            type: 'text',
-          },
-          {
-            key: 'dryRun',
-            label: 'Dry Run',
-            value: String(d['dryRun'] ?? 'false'),
-            type: 'select',
-            options: ['false', 'true'],
-          },
-        ];
+        // Custom Instagram panel above
+        return [];
+      case 'whatsapp':
+        // Custom WhatsApp panel above
+        return [];
       case 'linkedin':
         // Custom LinkedIn panel above (Description column + credentials)
         return [];
@@ -2764,6 +3006,249 @@ export class PropertiesPanelComponent implements OnInit {
     }
   }
 
+  protected instagramDescriptionColumn(): string {
+    const node = this.store.selectedNode();
+    const current = String(node?.data['captionColumn'] ?? '').trim();
+    return current || 'Message';
+  }
+
+  protected instagramDescriptionOptions(): string[] {
+    const defaults = [
+      'Message',
+      'Caption',
+      'Description',
+      'Text',
+      'Body',
+      'Content',
+      'ImagePrompt',
+    ];
+    const fromSheet = this.igSheetColumns();
+    const merged = [...fromSheet];
+    for (const d of defaults) {
+      if (!merged.some((h) => h.toLowerCase() === d.toLowerCase())) {
+        merged.push(d);
+      }
+    }
+    const selected = this.instagramDescriptionColumn();
+    if (selected && !merged.some((h) => h === selected)) {
+      merged.unshift(selected);
+    }
+    return merged;
+  }
+
+  protected onInstagramDescriptionColumn(column: string): void {
+    const col = String(column ?? '').trim();
+    this.updateField('captionColumn', col || 'Message');
+    this.updateField('caption', '{{message}}');
+    const sheets = this.findWorkflowSheetsNode();
+    if (sheets && col) {
+      this.store.updateNodeData(sheets.id, { messageColumn: col });
+    }
+  }
+
+  /** @deprecated alias — keep old call sites working */
+  protected instagramCaptionColumn(): string {
+    return this.instagramDescriptionColumn();
+  }
+
+  protected instagramColumnOptions(): string[] {
+    return this.instagramDescriptionOptions();
+  }
+
+  protected onInstagramCaptionColumn(column: string): void {
+    this.onInstagramDescriptionColumn(column);
+  }
+
+  protected refreshInstagramSheetColumns(): void {
+    this.hydrateInstagramSheetColumns(true);
+  }
+
+  private hydrateInstagramSheetColumns(forceApi = false): void {
+    this.igColumnsErr.set(null);
+    this.igColumnsMsg.set(null);
+    const sheets = this.findWorkflowSheetsNode();
+    if (!sheets) {
+      this.igSheetColumns.set([]);
+      this.igColumnsErr.set(
+        'Is workflow mein Google Sheets node nahi mila — pehle Sheets add/connect karo.',
+      );
+      return;
+    }
+
+    const cached = sheets.data['headersList'];
+    if (Array.isArray(cached) && cached.length && !forceApi) {
+      const headers = cached.map(String).filter(Boolean);
+      this.igSheetColumns.set(headers);
+      this.ensureInstagramColumnDefaults(headers);
+      this.igColumnsMsg.set(
+        `${headers.length} column(s) Sheets node se (cached)`,
+      );
+      return;
+    }
+
+    const spreadsheetId = String(
+      sheets.data['spreadsheetId'] ?? sheets.data['documentId'] ?? '',
+    ).trim();
+    const sheetName = String(sheets.data['sheetName'] ?? '').trim();
+    if (!spreadsheetId || !sheetName) {
+      this.igSheetColumns.set([]);
+      this.igColumnsErr.set(
+        'Google Sheets pe Document URL + sheet tab set karke pehle columns load karo.',
+      );
+      return;
+    }
+
+    this.loadingIgColumns = true;
+    this.api.getGoogleSheetHeaders(spreadsheetId, sheetName).subscribe((res) => {
+      this.loadingIgColumns = false;
+      if (!res.ok) {
+        this.igSheetColumns.set([]);
+        this.igColumnsErr.set(res.message ?? 'Columns load failed');
+        return;
+      }
+      const headers = (res.headers ?? []).map(String).filter(Boolean);
+      this.igSheetColumns.set(headers);
+      this.store.updateNodeData(sheets.id, { headersList: headers });
+      this.ensureInstagramColumnDefaults(headers);
+      this.igColumnsMsg.set(`${headers.length} column(s) loaded from sheet`);
+    });
+  }
+
+  private ensureInstagramColumnDefaults(headers: string[]): void {
+    const node = this.store.selectedNode();
+    if (!node || node.type !== 'instagram' || !headers.length) return;
+    const current = String(node.data['captionColumn'] ?? '').trim();
+    if (!current || !headers.includes(current)) {
+      const preferred =
+        headers.find((h) =>
+          /^(message|caption|description|text|body|content)$/i.test(h.trim()),
+        ) ?? headers[0];
+      this.onInstagramDescriptionColumn(preferred);
+    }
+    const imgCol = String(node.data['imagePromptColumn'] ?? '').trim();
+    if (!imgCol || !headers.includes(imgCol)) {
+      const imgPreferred =
+        headers.find((h) => /imageprompt|image.?prompt|prompt/i.test(h)) ??
+        'ImagePrompt';
+      this.updateField('imagePromptColumn', imgPreferred);
+    }
+  }
+
+  protected whatsappDescriptionColumn(): string {
+    const node = this.store.selectedNode();
+    const current = String(node?.data['captionColumn'] ?? '').trim();
+    return current || 'Message';
+  }
+
+  protected whatsappDescriptionOptions(): string[] {
+    const defaults = [
+      'Message',
+      'Caption',
+      'Description',
+      'Text',
+      'Body',
+      'Content',
+      'ImagePrompt',
+    ];
+    const fromSheet = this.waSheetColumns();
+    const merged = [...fromSheet];
+    for (const d of defaults) {
+      if (!merged.some((h) => h.toLowerCase() === d.toLowerCase())) {
+        merged.push(d);
+      }
+    }
+    const selected = this.whatsappDescriptionColumn();
+    if (selected && !merged.some((h) => h === selected)) {
+      merged.unshift(selected);
+    }
+    return merged;
+  }
+
+  protected onWhatsAppDescriptionColumn(column: string): void {
+    const col = String(column ?? '').trim();
+    this.updateField('captionColumn', col || 'Message');
+    this.updateField('message', '{{message}}');
+    const sheets = this.findWorkflowSheetsNode();
+    if (sheets && col) {
+      this.store.updateNodeData(sheets.id, { messageColumn: col });
+    }
+  }
+
+  protected refreshWhatsAppSheetColumns(): void {
+    this.hydrateWhatsAppSheetColumns(true);
+  }
+
+  private hydrateWhatsAppSheetColumns(forceApi = false): void {
+    this.waColumnsErr.set(null);
+    this.waColumnsMsg.set(null);
+    const sheets = this.findWorkflowSheetsNode();
+    if (!sheets) {
+      this.waSheetColumns.set([]);
+      this.waColumnsErr.set(
+        'Is workflow mein Google Sheets node nahi mila — pehle Sheets add/connect karo.',
+      );
+      return;
+    }
+
+    const cached = sheets.data['headersList'];
+    if (Array.isArray(cached) && cached.length && !forceApi) {
+      const headers = cached.map(String).filter(Boolean);
+      this.waSheetColumns.set(headers);
+      this.ensureWhatsAppColumnDefaults(headers);
+      this.waColumnsMsg.set(
+        `${headers.length} column(s) Sheets node se (cached)`,
+      );
+      return;
+    }
+
+    const spreadsheetId = String(
+      sheets.data['spreadsheetId'] ?? sheets.data['documentId'] ?? '',
+    ).trim();
+    const sheetName = String(sheets.data['sheetName'] ?? '').trim();
+    if (!spreadsheetId || !sheetName) {
+      this.waSheetColumns.set([]);
+      this.waColumnsErr.set(
+        'Google Sheets pe Document URL + sheet tab set karke pehle columns load karo.',
+      );
+      return;
+    }
+
+    this.loadingWaColumns = true;
+    this.api.getGoogleSheetHeaders(spreadsheetId, sheetName).subscribe((res) => {
+      this.loadingWaColumns = false;
+      if (!res.ok) {
+        this.waSheetColumns.set([]);
+        this.waColumnsErr.set(res.message ?? 'Columns load failed');
+        return;
+      }
+      const headers = (res.headers ?? []).map(String).filter(Boolean);
+      this.waSheetColumns.set(headers);
+      this.store.updateNodeData(sheets.id, { headersList: headers });
+      this.ensureWhatsAppColumnDefaults(headers);
+      this.waColumnsMsg.set(`${headers.length} column(s) loaded from sheet`);
+    });
+  }
+
+  private ensureWhatsAppColumnDefaults(headers: string[]): void {
+    const node = this.store.selectedNode();
+    if (!node || node.type !== 'whatsapp' || !headers.length) return;
+    const current = String(node.data['captionColumn'] ?? '').trim();
+    if (!current || !headers.includes(current)) {
+      const preferred =
+        headers.find((h) =>
+          /^(message|caption|description|text|body|content)$/i.test(h.trim()),
+        ) ?? headers[0];
+      this.onWhatsAppDescriptionColumn(preferred);
+    }
+    const imgCol = String(node.data['imagePromptColumn'] ?? '').trim();
+    if (!imgCol || !headers.includes(imgCol)) {
+      const imgPreferred =
+        headers.find((h) => /imageprompt|image.?prompt|prompt/i.test(h)) ??
+        'ImagePrompt';
+      this.updateField('imagePromptColumn', imgPreferred);
+    }
+  }
+
   protected buildScheduleSlack(): void {
     this.store.insertScheduleSlackTemplate(true);
   }
@@ -2772,6 +3257,7 @@ export class PropertiesPanelComponent implements OnInit {
     | 'slack'
     | 'facebook'
     | 'instagram'
+    | 'whatsapp'
     | 'telegram'
     | 'discord'
     | 'linkedin' = 'linkedin';
@@ -2781,6 +3267,7 @@ export class PropertiesPanelComponent implements OnInit {
       slack: 'Slack',
       facebook: 'Facebook',
       instagram: 'Instagram',
+      whatsapp: 'WhatsApp',
       telegram: 'Telegram',
       discord: 'Discord',
       linkedin: 'LinkedIn',

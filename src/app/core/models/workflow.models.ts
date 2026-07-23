@@ -22,6 +22,7 @@ export type NodeType =
   | 'google_sheets'
   | 'facebook'
   | 'instagram'
+  | 'whatsapp'
   | 'linkedin'
   | 'set'
   | 'filter'
